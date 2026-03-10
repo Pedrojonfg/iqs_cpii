@@ -1,0 +1,14 @@
+name: iqs_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pandas
+  - numpy
+  - scipy
+  - pip
+  - pip:
+    - ib_insync       
+    - pandas-ta       #Technical Analysis Library
+    - pytest          

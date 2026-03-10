@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iqs"
+version = "0.1.0"
+description = "Institutional Quantitative System - MVP para Computer Programming 2"
+authors = [
+    {name = "Tu Nombre", email = "tu.email@student.ie.edu"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas",
+    "numpy",
+    "scipy",
+    "ib_insync",
+    "pandas-ta"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest"
+]

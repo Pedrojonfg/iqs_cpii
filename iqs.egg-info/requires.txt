@@ -1,0 +1,8 @@
+pandas
+numpy
+scipy
+ib_insync
+pandas-ta
+
+[dev]
+pytest
