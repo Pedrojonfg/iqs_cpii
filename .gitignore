@@ -8,3 +8,5 @@ iqs_env/
 
 
 .DS_Store
+
+.env

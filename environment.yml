@@ -3,12 +3,16 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.12
+  - python=3.11
   - pandas
   - numpy
   - scipy
+  - pytest
+  - mypy
   - pip
   - pip:
-    - ib_insync       
-    - pandas-ta       #Technical Analysis Library
-    - pytest          
+      - ib_insync
+      - groq
+      - pybind11
+      - yfinance
+      - python-dotenv
