@@ -1,23 +1,61 @@
+from __future__ import annotations
+
 from scipy.stats import jarque_bera
 import pandas as pd
 import numpy as np
 from ib_insync import util
+from collections.abc import Sequence
+from typing import Any, Protocol
+
+class _BrokerLike(Protocol):
+    def fetch_past_data(self, symbol: str, days_back: int = 5) -> Sequence[Any]: ...
 
 class DataCalibrator:
-    def __init__(self, broker):
-        self.broker=broker
-    def fetch_and_clean_data(self, symbol, days_back=5):
-        raw_data=self.broker.fetch_past_data(symbol, days_back)
-        df= util.df(raw_data)
-        df= df[["time", "price", "size"]]
+    """Calibrate a volume-based candle size using historical tick data.
+
+    The calibration chooses the candle "volume bucket" size that yields returns
+    closest to normality (minimizing the Jarque–Bera statistic) over a set of
+    candidate candle sizes.
+    """
+
+    def __init__(self, broker: _BrokerLike) -> None:
+        """Create a calibrator.
+
+        Args:
+            broker: Object that can fetch historical ticks (see `_BrokerLike`).
+        """
+        self.broker: _BrokerLike = broker
+
+    def fetch_and_clean_data(self, symbol: str, days_back: int = 5) -> pd.DataFrame:
+        """Fetch historical ticks and return a clean DataFrame.
+
+        Args:
+            symbol: Ticker symbol.
+            days_back: Days of history to request.
+
+        Returns:
+            DataFrame with `time`, `price`, `size` columns.
+        """
+        raw_data = self.broker.fetch_past_data(symbol, days_back)
+        df: pd.DataFrame = util.df(raw_data)
+        df = df[["time", "price", "size"]]
         return df
-    def calibrate_with_scipy(self, df):   
-        df["cumsize"]=df["size"].cumsum()
-        candles_sizes=[100, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000]
-        best_jb_stat= float('inf')
-        best_candle_size = 5000
+
+    def calibrate_with_scipy(self, df: pd.DataFrame) -> int:
+        """Select the best candle size from a set of candidates.
+
+        Args:
+            df: DataFrame containing at least `price` and `size` columns.
+
+        Returns:
+            The chosen candle size (volume bucket).
+        """
+        df["cumsize"] = df["size"].cumsum()
+        candles_sizes: list[int] = [100, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000]
+        best_jb_stat: float = float("inf")
+        best_candle_size: int = 5000
         for c in candles_sizes:
-            df["ID"]= df["cumsize"]//c
+            df["ID"] = df["cumsize"] // c
             candles = df.groupby("ID").agg(
                 open=("price", "first"),
                 high=("price", "max"),
@@ -34,6 +72,7 @@ class DataCalibrator:
                 best_candle_size=c
         return best_candle_size
     
-    def coldpath(self, symbol, days_back=5):
-        pastdata= self.fetch_and_clean_data(symbol, days_back)
+    def coldpath(self, symbol: str, days_back: int = 5) -> int:
+        """Convenience helper: fetch + calibrate in one call."""
+        pastdata = self.fetch_and_clean_data(symbol, days_back)
         return self.calibrate_with_scipy(pastdata)

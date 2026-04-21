@@ -9,6 +9,7 @@ dependencies:
   - scipy
   - pytest
   - mypy
+  - sphinx
   - pip
   - pip:
       - ib_insync

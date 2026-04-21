@@ -1,15 +1,22 @@
-from groq import Groq
+from __future__ import annotations
+
 import os
-from dotenv import load_dotenv
-import time
 import json
+import time
+from typing import Any, Literal
+
+from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv()
 class LLMCheck:
-    def __init__(self):
-        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        self.model = "llama-3.3-70b-versatile"
-        self.system_prompt= """
+    """LLM-based veto layer for trade decisions based on recent news."""
+
+    def __init__(self) -> None:
+        """Create an LLM veto checker using Groq API credentials from env."""
+        self.client: Any = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        self.model: str = "llama-3.3-70b-versatile"
+        self.system_prompt: str = """
         Role: Senior Equity Research Analyst (European Aerospace & Defense).
         Objective: Veto 'BUY' orders based on high-impact event-driven red flags.
         
@@ -30,11 +37,23 @@ class LLMCheck:
         Output: JSON ONLY.
         Format: {"decision": "CLEAR" | "VETO", "reason": "concise technical trigger"}
         """
-        self.template= "Ticker to evaluate: {ticker} Latest headlines: {news}"
-        self.cache = {}
-        self.cooldown_secs=1800
+        self.template: str = "Ticker to evaluate: {ticker} Latest headlines: {news}"
+        self.cache: dict[str, tuple[str, float]] = {}
+        self.cooldown_secs: float = 1800.0
 
-    def decide(self, ticker, news):
+    def decide(self, ticker: str, news: str) -> Literal["CLEAR", "VETO"]:
+        """Return a veto decision for a ticker given a news payload.
+
+        Uses an in-memory cooldown cache to avoid repeatedly approving the same
+        ticker within a short window.
+
+        Args:
+            ticker: Ticker symbol.
+            news: Sanitized news payload (see `NewsFetcher.format_and_sanitize`).
+
+        Returns:
+            `"CLEAR"` or `"VETO"`.
+        """
         current_time = time.time()
 
         if ticker in self.cache:
@@ -54,10 +73,10 @@ class LLMCheck:
             response_format={"type": "json_object"},
             temperature=0.0
         )
-        raw_answer = chat.choices[0].message.content 
-        answer = json.loads(raw_answer)
-        decision = answer.get("decision", "VETO")
-        reason = answer.get("reason", "No reason provided")
+        raw_answer: str = chat.choices[0].message.content
+        answer: dict[str, Any] = json.loads(raw_answer)
+        decision: Literal["CLEAR", "VETO"] = answer.get("decision", "VETO")
+        reason: str = str(answer.get("reason", "No reason provided"))
         with open("veto_audit.log", "a") as f:
             f.write(f"[{time.strftime('%d-%m-%Y %H:%M:%S')}] {ticker} | RESULT: {decision} | REASON: {reason}\n")
         self.cache[ticker]= (decision, current_time)
