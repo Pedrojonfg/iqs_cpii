@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 
+from dotenv import load_dotenv
 from ib_insync import IB
 
 from iqs.broker import BrokerData
@@ -12,8 +14,14 @@ from iqs.manager import Manager
 from iqs.technical import TechnicalAnalyzer
 
 async def main() -> None:
+    load_dotenv()
+
+    ib_host = os.getenv("IB_HOST")
+    ib_port = int(os.getenv("IB_PORT"))
+    ib_client_id = int(os.getenv("IB_CLIENT_ID"))
+
     connection: IB = IB()
-    await connection.connectAsync("172.31.48.1", 7947, clientId=1)
+    await connection.connectAsync(ib_host, ib_port, clientId=ib_client_id)
 
     try:
         execution_handler: ExecutionHandler = ExecutionHandler(connection)
