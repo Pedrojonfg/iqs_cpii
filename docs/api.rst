@@ -1,13 +1,13 @@
 Public API (Reference)
 ======================
 
-En esta documentación, “API pública” significa **las clases/funciones/módulos pensados para ser usados desde fuera del paquete**.
-En Python, suele entenderse como:
+In this documentation, “public API” means **the classes/functions/modules intended to be used from outside the package**.
+In Python, this is typically understood as:
 
-- Elementos **sin guion bajo** (no empiezan por `_`)
-- Interfaces que el proyecto considera **estables y soportadas** para que otros las importen y usen
+- **Non-underscore** elements (do not start with `_`)
+- Interfaces the project considers **stable and supported** for external imports and usage
 
-Aquí documentamos los módulos “de cara a usuario” dentro de `iqs`.
+Here we document the user-facing modules within `iqs`.
 
 .. toctree::
    :maxdepth: 2
