@@ -57,37 +57,47 @@ class Manager:
         self.technical: _TechnicalLike = technical_analyzer
         self.execution: _ExecutionLike = execution_handler
 
-    def manage_exits(self) -> None:
+    async def manage_exits(self) -> None:
         """Evaluate open positions and send sell orders when signaled."""
         open_positions = self.broker.get_active_positions()
         for ticker in open_positions:
-            decision = self.technical.check_sell(ticker)
-            if decision.get("signal", "DON'T SELL") == "SELL":
-                self.execution.send_order(
-                    ticker,
-                    action="SELL",
-                    quantity=float(decision["quantity"]),
-                    entry_price=float(decision["entry_price"]),
-                    disp_money=self.broker.get_disp_money(),
-                )
-
-    def manage_entries(self) -> None:
-        """Evaluate universe tickers and send buy orders when allowed."""
-        for ticker in self.tickers:
-            decision = self.technical.check_trade(ticker)
-            if decision.get("signal", "DON'T BUY") == "BUY":
-                llmcheck = self.fundamental.check_trade(ticker)
-                if llmcheck == "CLEAR":
+            try:
+                decision = self.technical.check_sell(ticker)
+                if decision.get("signal", "DON'T SELL") == "SELL":
                     self.execution.send_order(
                         ticker,
-                        action="BUY",
+                        action="SELL",
                         quantity=float(decision["quantity"]),
                         entry_price=float(decision["entry_price"]),
                         disp_money=self.broker.get_disp_money(),
-                        take_profit=float(decision.get("take_profit", 0.0)),
-                        stop_loss=float(decision.get("stop_loss", 0.0)),
                     )
-                     
-                     
-                    
+            except Exception:
+                # Keep exits resilient: a single ticker shouldn't break the whole stage.
+                continue
+
+    async def manage_entries(self) -> None:
+        """Evaluate universe tickers and send buy orders when allowed."""
+        for ticker in self.tickers:
+            try:
+                decision = self.technical.check_trade(ticker)
+                if decision.get("signal", "DON'T BUY") == "BUY":
+                    # Prefer resilient path when available (async + timeout/breaker).
+                    llmcheck = (
+                        await self.fundamental.check_trade_safe(ticker)  # type: ignore[attr-defined]
+                        if hasattr(self.fundamental, "check_trade_safe")
+                        else self.fundamental.check_trade(ticker)
+                    )
+                    if llmcheck == "CLEAR":
+                        self.execution.send_order(
+                            ticker,
+                            action="BUY",
+                            quantity=float(decision["quantity"]),
+                            entry_price=float(decision["entry_price"]),
+                            disp_money=self.broker.get_disp_money(),
+                            take_profit=float(decision.get("take_profit", 0.0)),
+                            stop_loss=float(decision.get("stop_loss", 0.0)),
+                        )
+            except Exception:
+                # Keep entries resilient: one ticker failure shouldn't kill the stage.
+                continue
 

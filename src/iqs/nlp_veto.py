@@ -8,6 +8,8 @@ from typing import Any, Literal
 from dotenv import load_dotenv
 from groq import Groq
 
+from iqs.resilience import CircuitBreaker, run_sync_with_timeout
+
 load_dotenv()
 class LLMCheck:
     """LLM-based veto layer for trade decisions based on recent news."""
@@ -40,6 +42,8 @@ class LLMCheck:
         self.template: str = "Ticker to evaluate: {ticker} Latest headlines: {news}"
         self.cache: dict[str, tuple[str, float]] = {}
         self.cooldown_secs: float = 1800.0
+        self.timeout_s: float = 10.0
+        self.breaker: CircuitBreaker = CircuitBreaker(fail_threshold=3, reset_after_s=120.0)
 
     def decide(self, ticker: str, news: str) -> Literal["CLEAR", "VETO"]:
         """Return a veto decision for a ticker given a news payload.
@@ -83,3 +87,37 @@ class LLMCheck:
 
         return decision
         
+    def decide_safe(self, ticker: str, news: str) -> Literal["CLEAR", "VETO"]:
+        """
+        Resilient wrapper:
+        - circuit breaker blocks calls when the upstream is failing
+        - always returns a decision (fallback: VETO)
+        """
+
+        if not self.breaker.allow():
+            return "VETO"
+        try:
+            decision = self.decide(ticker, news)
+            self.breaker.record_success()
+            return decision
+        except Exception:
+            self.breaker.record_failure()
+            return "VETO"
+
+    async def decide_safe_async(self, ticker: str, news: str) -> Literal["CLEAR", "VETO"]:
+        """
+        Async resilient wrapper:
+        - runs the blocking Groq call in a thread
+        - applies timeout + circuit breaker
+        - fallback: VETO
+        """
+
+        if not self.breaker.allow():
+            return "VETO"
+        try:
+            decision = await run_sync_with_timeout(lambda: self.decide(ticker, news), timeout_s=self.timeout_s)
+            self.breaker.record_success()
+            return decision
+        except Exception:
+            self.breaker.record_failure()
+            return "VETO"

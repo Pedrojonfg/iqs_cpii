@@ -23,3 +23,15 @@ class FundamentalAnalyzer:
         safe_news: str = self.news.newsfetcher(ticker)
         decision: str = self.analysis.decide(ticker, safe_news)
         return decision
+
+    async def check_trade_safe(self, ticker: str) -> str:
+        """
+        Resilient version:
+        - news fetching is protected by timeout + circuit breaker
+        - LLM veto is protected by timeout + circuit breaker
+        - fallback is conservative: VETO on any failure
+        """
+
+        safe_news = await self.news.newsfetcher_safe(ticker)
+        decision = await self.analysis.decide_safe_async(ticker, safe_news)
+        return decision

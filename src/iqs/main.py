@@ -6,6 +6,7 @@ import time
 
 from dotenv import load_dotenv
 from ib_insync import IB
+import logging
 
 from iqs.broker import BrokerData
 from iqs.execution import ExecutionHandler
@@ -13,17 +14,57 @@ from iqs.fundamental import FundamentalAnalyzer
 from iqs.manager import Manager
 from iqs.technical import TechnicalAnalyzer
 
+def _touch_heartbeat() -> None:
+    """
+    Write a heartbeat file for an external watchdog.
+
+    Set `IQS_HEARTBEAT_PATH` to control the file location.
+    Set it to an empty string to disable.
+    """
+
+    path = os.getenv("IQS_HEARTBEAT_PATH", ".iqs_heartbeat").strip()
+    if not path:
+        return
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+    except OSError:
+        # Heartbeat failure should never stop trading logic.
+        return
+
+def _get_required_env(name: str) -> str:
+    value = os.getenv(name)
+    if value is None or value.strip() == "":
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+def _get_required_int_env(name: str) -> int:
+    raw = _get_required_env(name)
+    try:
+        return int(raw)
+    except ValueError as e:
+        raise RuntimeError(f"Environment variable {name} must be an integer, got: {raw!r}") from e
+
+def _setup_logging() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    )
+
 async def main() -> None:
+    _setup_logging()
     load_dotenv()
 
-    ib_host = os.getenv("IB_HOST")
-    ib_port = int(os.getenv("IB_PORT"))
-    ib_client_id = int(os.getenv("IB_CLIENT_ID"))
+    ib_host = _get_required_env("IB_HOST")
+    ib_port = _get_required_int_env("IB_PORT")
+    ib_client_id = _get_required_int_env("IB_CLIENT_ID")
 
     connection: IB = IB()
     await connection.connectAsync(ib_host, ib_port, clientId=ib_client_id)
 
     try:
+        _touch_heartbeat()
         execution_handler: ExecutionHandler = ExecutionHandler(connection)
         technical_analyzer: TechnicalAnalyzer = TechnicalAnalyzer()
         fundamental_analyzer: FundamentalAnalyzer = FundamentalAnalyzer()
@@ -37,9 +78,18 @@ async def main() -> None:
             execution_handler=execution_handler,
         )
         while True:
-            manager.manage_exits()
-            manager.manage_entries()
+            # Stage isolation: failures don't crash the process.
+            try:
+                await manager.manage_exits()
+            except Exception:
+                logging.getLogger("iqs").exception("manage_exits failed; continuing")
 
+            try:
+                await manager.manage_entries()
+            except Exception:
+                logging.getLogger("iqs").exception("manage_entries failed; continuing")
+
+            _touch_heartbeat()
             secs_until_next_min = 60 - (int(time.time()) % 60)
             await asyncio.sleep(secs_until_next_min)
     finally:
@@ -47,4 +97,8 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    asyncio.run(main())
+
+
+def cli() -> None:
     asyncio.run(main())

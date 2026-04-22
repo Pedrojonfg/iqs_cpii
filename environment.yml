@@ -3,10 +3,11 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.11
+  - python=3.12
   - pandas
   - numpy
   - scipy
+  - numba
   - pytest
   - mypy
   - sphinx
@@ -14,6 +15,6 @@ dependencies:
   - pip:
       - ib_insync
       - groq
-      - pybind11
       - yfinance
       - python-dotenv
+      - pandas-ta

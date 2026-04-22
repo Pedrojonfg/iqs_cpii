@@ -15,11 +15,27 @@ dependencies = [
     "pandas",
     "numpy",
     "scipy",
+    "numba",
     "ib_insync",
-    "pandas-ta"
+    "pandas-ta",
+    "python-dotenv",
+    "groq",
+    "yfinance",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest"
+    "pytest",
+    "mypy",
+    "sphinx",
 ] 
+
+[project.scripts]
+iqs = "iqs.main:cli"
+iqs-watchdog = "iqs.watchdog:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
