@@ -9,11 +9,12 @@ from ib_insync import IB
 import logging
 
 from iqs.broker import BrokerData
+from iqs.market_data_feed import FeedConfig, MarketDataFeed
 from iqs.execution import ExecutionHandler
 from iqs.fundamental import FundamentalAnalyzer
 from iqs.instruments import Instrument
 from iqs.manager import Manager
-from iqs.technical import TechnicalAnalyzer
+from iqs.technical import EventDrivenTechnicalAnalyzer, TechnicalAnalyzer
 
 def _touch_heartbeat() -> None:
     """
@@ -69,7 +70,11 @@ async def main() -> None:
         execution_handler: ExecutionHandler = ExecutionHandler(connection)
         fundamental_analyzer: FundamentalAnalyzer = FundamentalAnalyzer()
         broker: BrokerData = BrokerData(connection)
-        technical_analyzer: TechnicalAnalyzer = TechnicalAnalyzer(broker)
+        event_driven = os.getenv("IQS_EVENT_DRIVEN", "0").strip() == "1"
+        if event_driven:
+            technical_analyzer = EventDrivenTechnicalAnalyzer()
+        else:
+            technical_analyzer = TechnicalAnalyzer(broker)
         # Universe with IB contract metadata from the provided table.
         tickers: list[Instrument] = [
             Instrument(symbol="AIR", exchange="CHIX", currency="EUR"),  # Airbus
@@ -97,21 +102,43 @@ async def main() -> None:
             technical_analyzer=technical_analyzer,
             execution_handler=execution_handler,
         )
+        if not event_driven:
+            while True:
+                # Stage isolation: failures don't crash the process.
+                try:
+                    await manager.manage_exits()
+                except Exception:
+                    logging.getLogger("iqs").exception("manage_exits failed; continuing")
+
+                try:
+                    await manager.manage_entries()
+                except Exception:
+                    logging.getLogger("iqs").exception("manage_entries failed; continuing")
+
+                _touch_heartbeat()
+                secs_until_next_min = 60 - (int(time.time()) % 60)
+                await asyncio.sleep(secs_until_next_min)
+
+        # Event-driven mode: ticks -> volume bars -> manager.on_volume_bar(bar)
+        queue: asyncio.Queue = asyncio.Queue(maxsize=int(os.getenv("IQS_BAR_QUEUE_MAX", "1000")))
+        feed_cfg = FeedConfig(
+            default_bucket_volume=float(os.getenv("IQS_DEFAULT_BUCKET_VOLUME", "10000")),
+            calibration_path=os.getenv("IQS_CALIBRATION_PATH", "data/calibration/calibration_latest.json"),
+        )
+        loop = asyncio.get_running_loop()
+        feed = MarketDataFeed(broker=broker, instruments=tickers, out_queue=queue, loop=loop, config=feed_cfg)
+        feed.start()
+
+        logger = logging.getLogger("iqs")
+        logger.info("Event-driven mode started: waiting for volume bars")
+
         while True:
-            # Stage isolation: failures don't crash the process.
+            bar = await queue.get()
             try:
-                await manager.manage_exits()
+                await manager.on_volume_bar(bar)
             except Exception:
-                logging.getLogger("iqs").exception("manage_exits failed; continuing")
-
-            try:
-                await manager.manage_entries()
-            except Exception:
-                logging.getLogger("iqs").exception("manage_entries failed; continuing")
-
+                logger.exception("manager.on_volume_bar failed for symbol=%s", getattr(bar, "symbol", "?"))
             _touch_heartbeat()
-            secs_until_next_min = 60 - (int(time.time()) % 60)
-            await asyncio.sleep(secs_until_next_min)
     finally:
         connection.disconnect()
 
