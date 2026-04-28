@@ -68,6 +68,10 @@ class ExecutionHandler:
             raise ValueError("Incorrect Quantity-Price")
         if action=="BUY" and cost>disp_money:
             raise ValueError("Incorrect Quantity-Price")
+        has_take_profit = take_profit != 0.0
+        has_stop_loss = stop_loss != 0.0
+        if has_take_profit != has_stop_loss:
+            raise ValueError("take_profit and stop_loss must be both set or both zero")
         
 
         contract = Stock(contract_symbol, contract_exchange, contract_currency)
