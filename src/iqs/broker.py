@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import time
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -55,6 +56,13 @@ class BrokerData:
             return Stock(instrument.symbol, instrument.exchange, instrument.currency)
         return Stock(instrument, "SMART", "EUR")
 
+    @staticmethod
+    def _ensure_utc(dt: datetime.datetime) -> datetime.datetime:
+        """Normalize IB timestamps to timezone-aware UTC datetimes."""
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=datetime.timezone.utc)
+        return dt.astimezone(datetime.timezone.utc)
+
     def subscribe_to_data(self, instrument: Instrument | str, callback_function: Callable[..., Any]) -> None:
         """Subscribe to live tick-by-tick data for an instrument.
 
@@ -86,25 +94,35 @@ class BrokerData:
         """
         contract = self._build_stock_contract(instrument)
         self.ib.qualifyContracts(contract)
-        
+
         target_start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days_back)
         end_time = datetime.datetime.now(datetime.timezone.utc)
-        
         all_ticks: list[Any] = []
-        
-        while end_time > target_start_time:
+        max_iters = 200
+
+        for _ in range(max_iters):
+            if end_time <= target_start_time:
+                break
             tick_chunk = self.ib.reqHistoricalTicks(
                 contract,
                 startDateTime="",
                 endDateTime=end_time,
-                numberOfTicks=1000, 
+                numberOfTicks=1000,
                 whatToShow="TRADES",
                 useRth=False,
                 ignoreSize=False
-            ) 
-            if len(tick_chunk)==0:
+            )
+            if len(tick_chunk) == 0:
                 break
+
             all_ticks = list(tick_chunk) + all_ticks
-            end_time = tick_chunk[0].time
-        
+            oldest_time = min(self._ensure_utc(tick.time) for tick in tick_chunk)
+            next_end_time = oldest_time - datetime.timedelta(microseconds=1)
+            if next_end_time >= end_time:
+                break
+            end_time = next_end_time
+
+            # Historical backfill is a cold path; a small pause avoids hammering IB.
+            time.sleep(0.2)
+
         return all_ticks
