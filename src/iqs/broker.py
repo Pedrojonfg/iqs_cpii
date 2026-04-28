@@ -36,6 +36,17 @@ class BrokerData:
         positions = self.ib.positions()
         return [pos.contract.symbol for pos in positions if pos.position > 0]
 
+    def get_position_market_value(self, symbol: str) -> float:
+        """Return an approximate current position value for `symbol`.
+
+        Uses `abs(position * avgCost)` as a simple, broker-side proxy for current
+        monetary exposure.
+        """
+        for pos in self.ib.positions():
+            if pos.contract.symbol == symbol and pos.position > 0:
+                return abs(float(pos.position) * float(pos.avgCost))
+        return 0.0
+
     def get_disp_money(self, currency: str = "EUR") -> float:
         """Get available buying power in the requested currency.
 

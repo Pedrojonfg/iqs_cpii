@@ -9,6 +9,7 @@ from iqs.instruments import Instrument
 
 class _BrokerLike(Protocol):
     def get_active_positions(self) -> list[str]: ...
+    def get_position_market_value(self, symbol: str) -> float: ...
     def get_disp_money(self, currency: str = "EUR") -> float: ...
 
 
@@ -99,6 +100,18 @@ class Manager:
                 ticker = instrument.symbol
                 decision = self.technical.check_trade(ticker)
                 if decision.get("signal", "DON'T BUY") == "BUY":
+                    target_quantity = float(decision["quantity"])
+                    entry_price = float(decision["entry_price"])
+                    target_value = target_quantity * entry_price
+                    current_value = self.broker.get_position_market_value(ticker)
+                    if current_value >= target_value:
+                        logger.info(
+                            "Skipping BUY for ticker=%s: current position value %.2f already covers target %.2f",
+                            ticker,
+                            current_value,
+                            target_value,
+                        )
+                        continue
                     # Prefer resilient path when available (async + timeout/breaker).
                     safe_check = getattr(self.fundamental, "check_trade_safe", None)
                     if callable(safe_check):
@@ -109,8 +122,8 @@ class Manager:
                         self.execution.send_order(
                             instrument,
                             action="BUY",
-                            quantity=float(decision["quantity"]),
-                            entry_price=float(decision["entry_price"]),
+                            quantity=target_quantity,
+                            entry_price=entry_price,
                             disp_money=self.broker.get_disp_money(instrument.currency),
                             take_profit=float(decision.get("take_profit", 0.0)),
                             stop_loss=float(decision.get("stop_loss", 0.0)),

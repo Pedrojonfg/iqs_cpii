@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import os
 import json
+import logging
+import os
 import time
 from typing import Any, Literal
 
@@ -16,7 +17,14 @@ class LLMCheck:
 
     def __init__(self) -> None:
         """Create an LLM veto checker using Groq API credentials from env."""
-        self.client: Any = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        api_key = os.getenv("GROQ_API_KEY")
+        self.logger = logging.getLogger("iqs")
+        self.client: Any | None = None
+        self.enabled: bool = bool(api_key and api_key.strip())
+        if self.enabled:
+            self.client = Groq(api_key=api_key)
+        else:
+            self.logger.warning("GROQ_API_KEY is missing; LLM veto checker will conservatively return VETO")
         self.model: str = "llama-3.3-70b-versatile"
         self.system_prompt: str = """
         Role: Senior Equity Research Analyst (European Aerospace & Defense).
@@ -48,8 +56,9 @@ class LLMCheck:
     def decide(self, ticker: str, news: str) -> Literal["CLEAR", "VETO"]:
         """Return a veto decision for a ticker given a news payload.
 
-        Uses an in-memory cooldown cache to avoid repeatedly approving the same
-        ticker within a short window.
+        Uses an in-memory cooldown cache to avoid repeatedly re-checking or
+        re-entering the same ticker within a short window. During the cooldown,
+        the ticker is conservatively blocked with `VETO`.
 
         Args:
             ticker: Ticker symbol.
@@ -58,10 +67,13 @@ class LLMCheck:
         Returns:
             `"CLEAR"` or `"VETO"`.
         """
+        if not self.enabled or self.client is None:
+            return "VETO"
+
         current_time = time.time()
 
         if ticker in self.cache:
-            last_time =self.cache[ticker][1]
+            _, last_time = self.cache[ticker]
             if current_time - last_time < self.cooldown_secs:
                 return "VETO"
             else:
