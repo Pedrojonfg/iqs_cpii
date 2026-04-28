@@ -10,3 +10,4 @@ class Instrument:
     symbol: str
     exchange: str
     currency: str
+

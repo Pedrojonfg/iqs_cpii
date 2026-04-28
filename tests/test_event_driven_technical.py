@@ -1,7 +1,7 @@
 import os
 import time
 
-from iqs.events import VolumeBar
+from iqs.strategy.events import VolumeBar
 from iqs.hotpath import HotPathParams
 from iqs.technical import EventDrivenTechnicalAnalyzer
 

@@ -4,6 +4,9 @@ from typing import TYPE_CHECKING
 
 __all__ = [
     "BrokerData",
+    "Instrument",
+    "MarketDataFeed",
+    "FeedConfig",
     "DataCalibrator",
     "ExecutionHandler",
     "FundamentalAnalyzer",
@@ -26,67 +29,81 @@ def __getattr__(name: str):
     require optional packages until actually needed.
     """
     if name == "BrokerData":
-        from iqs.broker import BrokerData as v
+        from iqs.data.broker import BrokerData as v
+
+        return v
+    if name == "Instrument":
+        from iqs.data.instruments import Instrument as v
+
+        return v
+    if name == "MarketDataFeed":
+        from iqs.data.market_data_feed import MarketDataFeed as v
+
+        return v
+    if name == "FeedConfig":
+        from iqs.data.market_data_feed import FeedConfig as v
 
         return v
     if name == "DataCalibrator":
-        from iqs.calibrator import DataCalibrator as v
+        from iqs.coldpath.calibrator import DataCalibrator as v
 
         return v
     if name == "ExecutionHandler":
-        from iqs.execution import ExecutionHandler as v
+        from iqs.execution.execution import ExecutionHandler as v
 
         return v
     if name == "FundamentalAnalyzer":
-        from iqs.fundamental import FundamentalAnalyzer as v
+        from iqs.services.fundamental import FundamentalAnalyzer as v
 
         return v
     if name == "LLMCheck":
-        from iqs.nlp_veto import LLMCheck as v
+        from iqs.services.nlp_veto import LLMCheck as v
 
         return v
     if name == "HotPathEngine":
-        from iqs.hotpath import HotPathEngine as v
+        from iqs.strategy.hotpath import HotPathEngine as v
 
         return v
     if name == "HotPathParams":
-        from iqs.hotpath import HotPathParams as v
+        from iqs.strategy.hotpath import HotPathParams as v
 
         return v
     if name == "Manager":
-        from iqs.manager import Manager as v
+        from iqs.app.manager import Manager as v
 
         return v
     if name == "NewsFetcher":
-        from iqs.news import NewsFetcher as v
+        from iqs.services.news import NewsFetcher as v
 
         return v
     if name == "TechnicalAnalyzer":
-        from iqs.technical import TechnicalAnalyzer as v
+        from iqs.strategy.technical import TechnicalAnalyzer as v
 
         return v
     if name == "EventDrivenTechnicalAnalyzer":
-        from iqs.technical import EventDrivenTechnicalAnalyzer as v
+        from iqs.strategy.technical import EventDrivenTechnicalAnalyzer as v
 
         return v
     if name == "VolumeBar":
-        from iqs.events import VolumeBar as v
+        from iqs.strategy.events import VolumeBar as v
 
         return v
     if name == "HotPathResult":
-        from iqs.events import HotPathResult as v
+        from iqs.strategy.events import HotPathResult as v
 
         return v
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 if TYPE_CHECKING:
-    from iqs.broker import BrokerData
-    from iqs.calibrator import DataCalibrator
-    from iqs.execution import ExecutionHandler
-    from iqs.fundamental import FundamentalAnalyzer
-    from iqs.hotpath import HotPathEngine, HotPathParams
-    from iqs.manager import Manager
-    from iqs.news import NewsFetcher
-    from iqs.nlp_veto import LLMCheck
-    from iqs.events import HotPathResult, VolumeBar
-    from iqs.technical import TechnicalAnalyzer
+    from iqs.data.broker import BrokerData
+    from iqs.data.instruments import Instrument
+    from iqs.data.market_data_feed import FeedConfig, MarketDataFeed
+    from iqs.coldpath.calibrator import DataCalibrator
+    from iqs.execution.execution import ExecutionHandler
+    from iqs.services.fundamental import FundamentalAnalyzer
+    from iqs.strategy.hotpath import HotPathEngine, HotPathParams
+    from iqs.app.manager import Manager
+    from iqs.services.news import NewsFetcher
+    from iqs.services.nlp_veto import LLMCheck
+    from iqs.strategy.events import HotPathResult, VolumeBar
+    from iqs.strategy.technical import TechnicalAnalyzer

@@ -10,9 +10,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from ib_insync import IB
 
-from iqs.broker import BrokerData
-from iqs.calibrator import DataCalibrator
-from iqs.instruments import Instrument
+from iqs.coldpath.calibrator import DataCalibrator
+from iqs.data.broker import BrokerData
+from iqs.data.instruments import Instrument
 
 
 def _required_env(name: str) -> str:
@@ -36,7 +36,6 @@ def _parse_symbols(raw: str) -> list[str]:
 
 
 def _default_universe() -> list[Instrument]:
-    # Keep the cold path independent from trading code, but provide a sensible default.
     return [
         Instrument(symbol="AIR", exchange="CHIX", currency="EUR"),
         Instrument(symbol="HO", exchange="CHIX", currency="EUR"),
@@ -86,11 +85,7 @@ async def _run_cold_path(*, symbols: list[str], days_back: int, out_dir: Path) -
             results[sym] = int(calibrator.coldpath(sym, days_back=days_back))
 
         now = dt.datetime.now(dt.timezone.utc)
-        payload = {
-            "generated_at_utc": now.isoformat(),
-            "days_back": days_back,
-            "bucket_volume_by_symbol": results,
-        }
+        payload = {"generated_at_utc": now.isoformat(), "days_back": days_back, "bucket_volume_by_symbol": results}
 
         _ensure_dir(out_dir)
         dated = out_dir / f"calibration_{now.date().isoformat()}.json"
@@ -104,29 +99,15 @@ async def _run_cold_path(*, symbols: list[str], days_back: int, out_dir: Path) -
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="IQS cold path: daily volume-bar bucket calibration.")
-    parser.add_argument(
-        "--days-back",
-        type=int,
-        default=int(os.getenv("IQS_COLDPATH_DAYS_BACK", "5")),
-        help="How many days of historical ticks to use (default from IQS_COLDPATH_DAYS_BACK).",
-    )
-    parser.add_argument(
-        "--symbols",
-        default=os.getenv("IQS_COLDPATH_SYMBOLS", ""),
-        help="Comma-separated symbols to calibrate (default from IQS_COLDPATH_SYMBOLS).",
-    )
-    parser.add_argument(
-        "--out-dir",
-        default=os.getenv("IQS_COLDPATH_OUT_DIR", "data/calibration"),
-        help="Directory to write calibration files (default data/calibration).",
-    )
+    parser.add_argument("--days-back", type=int, default=int(os.getenv("IQS_COLDPATH_DAYS_BACK", "5")))
+    parser.add_argument("--symbols", default=os.getenv("IQS_COLDPATH_SYMBOLS", ""))
+    parser.add_argument("--out-dir", default=os.getenv("IQS_COLDPATH_OUT_DIR", "data/calibration"))
     args = parser.parse_args()
 
     if args.symbols.strip():
         symbols = _parse_symbols(args.symbols)
     else:
         symbols = [i.symbol for i in _default_universe()]
-
     if args.days_back <= 0:
         raise SystemExit("--days-back must be > 0")
 

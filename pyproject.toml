@@ -31,9 +31,9 @@ dev = [
 ] 
 
 [project.scripts]
-iqs = "iqs.main:cli"
-iqs-watchdog = "iqs.watchdog:main"
-iqs-coldpath = "iqs.coldpath:main"
+iqs = "iqs.app.main:cli"
+iqs-watchdog = "iqs.ops.watchdog:main"
+iqs-coldpath = "iqs.cli.coldpath:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

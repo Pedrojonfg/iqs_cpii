@@ -1,6 +1,6 @@
 import time
 
-from iqs.events import VolumeBar
+from iqs.strategy.events import VolumeBar
 from iqs.hotpath import HotPathEngine, HotPathParams
 
 

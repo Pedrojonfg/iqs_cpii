@@ -11,13 +11,6 @@ T = TypeVar("T")
 
 @dataclass
 class CircuitBreaker:
-    """
-    Minimal circuit breaker.
-
-    - CLOSED: calls are allowed
-    - OPEN: calls are blocked until `open_until` expires
-    """
-
     fail_threshold: int = 3
     reset_after_s: float = 120.0
     fail_count: int = 0
@@ -41,9 +34,5 @@ async def run_with_timeout(coro: Awaitable[T], timeout_s: float) -> T:
 
 
 async def run_sync_with_timeout(fn: Callable[[], T], timeout_s: float) -> T:
-    """
-    Runs a blocking callable in a thread and enforces an asyncio timeout.
-    """
-
     return await asyncio.wait_for(asyncio.to_thread(fn), timeout=timeout_s)
 

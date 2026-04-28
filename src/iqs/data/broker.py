@@ -7,10 +7,11 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from iqs.instruments import Instrument
+from iqs.data.instruments import Instrument
 
 if TYPE_CHECKING:
     from ib_insync import IB
+
 
 class BrokerData:
     """Thin wrapper around an Interactive Brokers (`ib_insync`) connection.
@@ -29,33 +30,19 @@ class BrokerData:
         self.ib: "IB" = ib_connection
 
     def get_active_positions(self) -> list[str]:
-        """Return symbols with a positive open position.
-
-        Returns:
-            A list of ticker symbols (e.g. `["AIR.PA", "RHM.DE"]`) currently held
-            with position size > 0.
-        """
+        """Return symbols with a positive open position."""
         positions = self.ib.positions()
         return [pos.contract.symbol for pos in positions if pos.position > 0]
 
     def get_position_market_value(self, symbol: str) -> float:
-        """Return an approximate current position value for `symbol`.
-
-        Uses `abs(position * avgCost)` as a simple, broker-side proxy for current
-        monetary exposure.
-        """
+        """Return an approximate current position value for `symbol`."""
         for pos in self.ib.positions():
             if pos.contract.symbol == symbol and pos.position > 0:
                 return abs(float(pos.position) * float(pos.avgCost))
         return 0.0
 
     def get_disp_money(self, currency: str = "EUR") -> float:
-        """Get available buying power in the requested currency.
-
-        Returns:
-            Available funds as a float in `currency`. Returns `0.0` if the tag is
-            not found.
-        """
+        """Get available buying power in the requested currency."""
         acc_values = self.ib.accountValues()
         for value in acc_values:
             if value.tag == "AvailableFunds" and value.currency == currency:
@@ -77,34 +64,14 @@ class BrokerData:
         return dt.astimezone(datetime.timezone.utc)
 
     def subscribe_to_data(self, instrument: Instrument | str, callback_function: Callable[..., Any]) -> None:
-        """Subscribe to live tick-by-tick data for an instrument.
-
-        The callback is attached to the `updateEvent` stream provided by
-        `ib_insync`.
-
-        Args:
-            instrument: Instrument to subscribe to. A bare symbol string is accepted
-                as a backward-compatible fallback and will use `SMART` / `EUR`.
-            callback_function: Function called on updates (signature depends on
-                `ib_insync` event payloads).
-        """
+        """Subscribe to live tick-by-tick data for an instrument."""
         contract = self._build_stock_contract(instrument)
         self.ib.qualifyContracts(contract)
-        
-        ticker_stream = self.ib.reqTickByTickData(contract, 'AllLast')
+        ticker_stream = self.ib.reqTickByTickData(contract, "AllLast")
         ticker_stream.updateEvent += callback_function
 
     def fetch_past_data(self, instrument: Instrument | str, days_back: int = 5) -> Sequence[Any]:
-        """Fetch historical ticks for an instrument going back `days_back` days.
-
-        Args:
-            instrument: Instrument to fetch. A bare symbol string is accepted as a
-                backward-compatible fallback and will use `SMART` / `EUR`.
-            days_back: How many days of data to retrieve.
-
-        Returns:
-            A sequence of tick objects returned by `ib_insync`.
-        """
+        """Fetch historical ticks for an instrument going back `days_back` days."""
         contract = self._build_stock_contract(instrument)
         self.ib.qualifyContracts(contract)
 
@@ -123,7 +90,7 @@ class BrokerData:
                 numberOfTicks=1000,
                 whatToShow="TRADES",
                 useRth=False,
-                ignoreSize=False
+                ignoreSize=False,
             )
             if len(tick_chunk) == 0:
                 break
@@ -149,11 +116,7 @@ class BrokerData:
         what_to_show: str = "TRADES",
         use_rth: bool = False,
     ) -> pd.DataFrame:
-        """Fetch historical OHLCV bars from Interactive Brokers.
-
-        This uses `ib_insync.IB.reqHistoricalData` and returns a normalized DataFrame
-        with lowercase columns: open, high, low, close, volume, date.
-        """
+        """Fetch historical OHLCV bars from Interactive Brokers."""
         from ib_insync import util
 
         contract = self._build_stock_contract(instrument)
@@ -174,9 +137,9 @@ class BrokerData:
             return pd.DataFrame()
 
         df = df.rename(columns={c: str(c).lower() for c in df.columns})
-        # Keep a consistent minimal schema.
         cols = [c for c in ["date", "open", "high", "low", "close", "volume"] if c in df.columns]
         df = df[cols].copy()
         if "close" in df.columns:
             df = df.dropna(subset=["close"])
         return df
+

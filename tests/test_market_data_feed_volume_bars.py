@@ -1,8 +1,8 @@
 import asyncio
 
-from iqs.events import VolumeBar
-from iqs.instruments import Instrument
-from iqs.market_data_feed import FeedConfig, MarketDataFeed
+from iqs.strategy.events import VolumeBar
+from iqs.data.instruments import Instrument
+from iqs.data.market_data_feed import FeedConfig, MarketDataFeed
 
 
 class _FakeBroker:
