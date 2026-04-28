@@ -265,6 +265,83 @@ def vwap(prices: Array1D, volumes: Array1D) -> float:
 
 
 @njit(cache=True)
+def rolling_std(x: Array1D) -> float:
+    """
+    Standard deviation (population) for a 1D array.
+    """
+    n = x.size
+    if n == 0:
+        return float("nan")
+    mu = 0.0
+    for i in range(n):
+        mu += x[i]
+    mu /= n
+    var = 0.0
+    for i in range(n):
+        d = x[i] - mu
+        var += d * d
+    var /= n
+    return math.sqrt(var)
+
+
+@njit(cache=True)
+def hotpath_vwap_bands_signal(
+    closes: Array1D,
+    volumes: Array1D,
+    *,
+    vol_window: int,
+    band_k: float,
+) -> tuple[int, float, float, float, float]:
+    """
+    Institutional-ish hot path core:
+    - compute VWAP over the provided window
+    - compute sigma as std of recent log-returns over `vol_window`
+    - build bands: VWAP ± band_k * sigma * last_close
+    - signal:
+        +1 if last_close > upper
+        -1 if last_close < lower
+         0 otherwise
+
+    Returns: (signal, vwap, upper, lower, sigma)
+    """
+    n = closes.size
+    if n == 0 or volumes.size != n:
+        return 0, float("nan"), float("nan"), float("nan"), float("nan")
+
+    vw = vwap(closes, volumes)
+    if not (vw == vw):  # NaN check
+        return 0, float("nan"), float("nan"), float("nan"), float("nan")
+
+    # Volatility from recent log-returns.
+    r = log_returns(closes)
+    if r.size == 0:
+        return 0, vw, vw, vw, 0.0
+
+    w = vol_window
+    if w <= 1:
+        w = 2
+    if w > r.size:
+        w = r.size
+    # Take last w returns.
+    start = r.size - w
+    sigma_r = rolling_std(r[start:])
+
+    last = closes[n - 1]
+    if last <= 0.0 or not (sigma_r == sigma_r):
+        return 0, vw, vw, vw, float("nan")
+
+    # Convert return-vol to price-width scale.
+    width = band_k * sigma_r * last
+    upper = vw + width
+    lower = vw - width
+    sig = 0
+    if last > upper:
+        sig = 1
+    elif last < lower:
+        sig = -1
+    return sig, vw, upper, lower, sigma_r
+
+@njit(cache=True)
 def twap(prices: Array1D) -> float:
     """
     TWAP (Time Weighted Average Price) assuming equally spaced samples.
