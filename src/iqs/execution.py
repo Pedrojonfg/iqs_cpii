@@ -57,17 +57,23 @@ class ExecutionHandler:
 
         #Checks
         if len(contract_symbol) == 0:
-            raise ValueError("Invalid ticker")
+            raise ValueError("ticker must be a non-empty symbol")
         
         action =action.upper()
         if action not in ["BUY", "SELL"]:
-            raise ValueError("The action is not BUY or SELL")
+            raise ValueError(f"action must be BUY or SELL, got: {action!r}")
         
         cost=quantity*entry_price
-        if cost<=0 or quantity<0:
-            raise ValueError("Incorrect Quantity-Price")
+        if quantity <= 0:
+            raise ValueError(f"quantity must be positive, got: {quantity}")
+        if entry_price <= 0:
+            raise ValueError(f"entry_price must be positive, got: {entry_price}")
+        if cost <= 0:
+            raise ValueError(f"order notional must be positive, got: {cost}")
         if action=="BUY" and cost>disp_money:
-            raise ValueError("Incorrect Quantity-Price")
+            raise ValueError(
+                f"insufficient funds for BUY order: required={cost}, available={disp_money}"
+            )
         has_take_profit = take_profit != 0.0
         has_stop_loss = stop_loss != 0.0
         if has_take_profit != has_stop_loss:
