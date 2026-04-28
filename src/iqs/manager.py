@@ -4,10 +4,12 @@ import logging
 from collections.abc import Iterable
 from typing import Any, Protocol
 
+from iqs.instruments import Instrument
+
 
 class _BrokerLike(Protocol):
     def get_active_positions(self) -> list[str]: ...
-    def get_disp_money(self) -> float: ...
+    def get_disp_money(self, currency: str = "EUR") -> float: ...
 
 
 class _TechnicalLike(Protocol):
@@ -22,7 +24,7 @@ class _FundamentalLike(Protocol):
 class _ExecutionLike(Protocol):
     def send_order(
         self,
-        ticker: str,
+        instrument: Instrument | str,
         action: str,
         quantity: float,
         entry_price: float,
@@ -38,7 +40,7 @@ class Manager:
     def __init__(
         self,
         broker: _BrokerLike,
-        tickers: Iterable[str],
+        tickers: Iterable[Instrument],
         fundamental_analyzer: _FundamentalLike,
         technical_analyzer: _TechnicalLike,
         execution_handler: _ExecutionLike,
@@ -53,7 +55,8 @@ class Manager:
             execution_handler: Order execution abstraction.
         """
         self.broker: _BrokerLike = broker
-        self.tickers: list[str] = list(tickers)
+        self.tickers: list[Instrument] = list(tickers)
+        self.instrument_by_symbol: dict[str, Instrument] = {instrument.symbol: instrument for instrument in self.tickers}
         self.fundamental: _FundamentalLike = fundamental_analyzer
         self.technical: _TechnicalLike = technical_analyzer
         self.execution: _ExecutionLike = execution_handler
@@ -65,14 +68,15 @@ class Manager:
         failures = 0
         for ticker in open_positions:
             try:
+                instrument = self.instrument_by_symbol.get(ticker, Instrument(symbol=ticker, exchange="SMART", currency="EUR"))
                 decision = self.technical.check_sell(ticker)
                 if decision.get("signal", "DON'T SELL") == "SELL":
                     self.execution.send_order(
-                        ticker,
+                        instrument,
                         action="SELL",
                         quantity=float(decision["quantity"]),
                         entry_price=float(decision["entry_price"]),
-                        disp_money=self.broker.get_disp_money(),
+                        disp_money=self.broker.get_disp_money(instrument.currency),
                     )
             except Exception:
                 # Keep exits resilient: a single ticker shouldn't break the whole stage.
@@ -86,8 +90,9 @@ class Manager:
         """Evaluate universe tickers and send buy orders when allowed."""
         logger = logging.getLogger("iqs")
         failures = 0
-        for ticker in self.tickers:
+        for instrument in self.tickers:
             try:
+                ticker = instrument.symbol
                 decision = self.technical.check_trade(ticker)
                 if decision.get("signal", "DON'T BUY") == "BUY":
                     # Prefer resilient path when available (async + timeout/breaker).
@@ -98,11 +103,11 @@ class Manager:
                     )
                     if llmcheck == "CLEAR":
                         self.execution.send_order(
-                            ticker,
+                            instrument,
                             action="BUY",
                             quantity=float(decision["quantity"]),
                             entry_price=float(decision["entry_price"]),
-                            disp_money=self.broker.get_disp_money(),
+                            disp_money=self.broker.get_disp_money(instrument.currency),
                             take_profit=float(decision.get("take_profit", 0.0)),
                             stop_loss=float(decision.get("stop_loss", 0.0)),
                         )

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ib_insync import IB, LimitOrder, Stock
+from iqs.instruments import Instrument
 
 class ExecutionHandler:
     """Order execution layer for Interactive Brokers via `ib_insync`."""
@@ -21,7 +22,7 @@ class ExecutionHandler:
     
     def send_order(
         self,
-        ticker: str,
+        instrument: Instrument | str,
         action: str,
         quantity: float,
         entry_price: float,
@@ -32,7 +33,8 @@ class ExecutionHandler:
         """Send a limit order (or bracket order if TP/SL provided).
 
         Args:
-            ticker: Symbol to trade.
+            instrument: Instrument to trade. A bare symbol string is accepted as a
+                backward-compatible fallback and will use `SMART` / `EUR`.
             action: `"BUY"` or `"SELL"` (case-insensitive).
             quantity: Order quantity (shares).
             entry_price: Limit price.
@@ -44,8 +46,17 @@ class ExecutionHandler:
         Raises:
             ValueError: If inputs are invalid or insufficient buying power.
         """
+        if isinstance(instrument, Instrument):
+            contract_symbol = instrument.symbol
+            contract_exchange = instrument.exchange
+            contract_currency = instrument.currency
+        else:
+            contract_symbol = instrument
+            contract_exchange = "SMART"
+            contract_currency = "EUR"
+
         #Checks
-        if len(ticker)==0:
+        if len(contract_symbol) == 0:
             raise ValueError("Invalid ticker")
         
         action =action.upper()
@@ -59,7 +70,7 @@ class ExecutionHandler:
             raise ValueError("Incorrect Quantity-Price")
         
 
-        contract= Stock(ticker, "SMART", "EUR")
+        contract = Stock(contract_symbol, contract_exchange, contract_currency)
         self.ib.qualifyContracts(contract)
 
         if take_profit==0.0 and stop_loss==0.0:

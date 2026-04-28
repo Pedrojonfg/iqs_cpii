@@ -11,6 +11,7 @@ import logging
 from iqs.broker import BrokerData
 from iqs.execution import ExecutionHandler
 from iqs.fundamental import FundamentalAnalyzer
+from iqs.instruments import Instrument
 from iqs.manager import Manager
 from iqs.technical import TechnicalAnalyzer
 
@@ -69,7 +70,26 @@ async def main() -> None:
         technical_analyzer: TechnicalAnalyzer = TechnicalAnalyzer()
         fundamental_analyzer: FundamentalAnalyzer = FundamentalAnalyzer()
         broker: BrokerData = BrokerData(connection)
-        tickers: list[str] = []
+        # Universe with IB contract metadata from the provided table.
+        tickers: list[Instrument] = [
+            Instrument(symbol="AIR", exchange="CHIX", currency="EUR"),  # Airbus
+            Instrument(symbol="HO", exchange="CHIX", currency="EUR"),  # Thales
+            Instrument(symbol="SAF", exchange="CHIX", currency="EUR"),  # Safran
+            Instrument(symbol="AM", exchange="CHIX", currency="EUR"),  # Dassault Aviation
+            Instrument(symbol="RHM", exchange="CHIX", currency="EUR"),  # Rheinmetall
+            Instrument(symbol="HAG", exchange="CHIX", currency="EUR"),  # Hensoldt
+            Instrument(symbol="MTX", exchange="CHIX", currency="EUR"),  # MTU Aero Engines
+            Instrument(symbol="RENK", exchange="CHIX", currency="EUR"),  # Renk Group
+            Instrument(symbol="BA.", exchange="CHIX", currency="GBP"),  # BAE Systems
+            Instrument(symbol="RR.", exchange="CHIX", currency="GBP"),  # Rolls-Royce
+            Instrument(symbol="QQQ.", exchange="CHIX", currency="GBP"),  # QinetiQ
+            Instrument(symbol="CHG", exchange="CHIX", currency="GBP"),  # Chemring
+            Instrument(symbol="BAB", exchange="CHIX", currency="GBP"),  # Babcock
+            Instrument(symbol="LDO", exchange="CHIX", currency="EUR"),  # Leonardo
+            Instrument(symbol="SAAB-B", exchange="CHIX", currency="SEK"),  # Saab AB
+            Instrument(symbol="IDR", exchange="CHIX", currency="EUR"),  # Indra
+            Instrument(symbol="KOG", exchange="CHIX", currency="NOK"),  # Kongsberg
+        ]
         manager: Manager = Manager(
             broker=broker,
             tickers=tickers,

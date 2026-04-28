@@ -4,6 +4,8 @@ import datetime
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
+from iqs.instruments import Instrument
+
 if TYPE_CHECKING:
     from ib_insync import IB
 
@@ -33,51 +35,56 @@ class BrokerData:
         positions = self.ib.positions()
         return [pos.contract.symbol for pos in positions if pos.position > 0]
 
-    def get_disp_money(self) -> float:
-        """Get available buying power in EUR.
+    def get_disp_money(self, currency: str = "EUR") -> float:
+        """Get available buying power in the requested currency.
 
         Returns:
-            Available funds as a float in EUR. Returns `0.0` if the tag is not
-            found.
+            Available funds as a float in `currency`. Returns `0.0` if the tag is
+            not found.
         """
         acc_values = self.ib.accountValues()
         for value in acc_values:
-            if value.tag == "AvailableFunds" and value.currency == "EUR":
+            if value.tag == "AvailableFunds" and value.currency == currency:
                 return float(value.value)
         return 0.0
 
-    def subscribe_to_data(self, symbol: str, callback_function: Callable[..., Any]) -> None:
-        """Subscribe to live tick-by-tick data for `symbol`.
+    def _build_stock_contract(self, instrument: Instrument | str):
+        from ib_insync import Stock
+
+        if isinstance(instrument, Instrument):
+            return Stock(instrument.symbol, instrument.exchange, instrument.currency)
+        return Stock(instrument, "SMART", "EUR")
+
+    def subscribe_to_data(self, instrument: Instrument | str, callback_function: Callable[..., Any]) -> None:
+        """Subscribe to live tick-by-tick data for an instrument.
 
         The callback is attached to the `updateEvent` stream provided by
         `ib_insync`.
 
         Args:
-            symbol: Ticker symbol to subscribe to.
+            instrument: Instrument to subscribe to. A bare symbol string is accepted
+                as a backward-compatible fallback and will use `SMART` / `EUR`.
             callback_function: Function called on updates (signature depends on
                 `ib_insync` event payloads).
         """
-        from ib_insync import Stock
-
-        contract = Stock(symbol, "SMART", "EUR")
+        contract = self._build_stock_contract(instrument)
         self.ib.qualifyContracts(contract)
         
         ticker_stream = self.ib.reqTickByTickData(contract, 'AllLast')
         ticker_stream.updateEvent += callback_function
 
-    def fetch_past_data(self, symbol: str, days_back: int = 5) -> Sequence[Any]:
-        """Fetch historical ticks for `symbol` going back `days_back` days.
+    def fetch_past_data(self, instrument: Instrument | str, days_back: int = 5) -> Sequence[Any]:
+        """Fetch historical ticks for an instrument going back `days_back` days.
 
         Args:
-            symbol: Ticker symbol.
+            instrument: Instrument to fetch. A bare symbol string is accepted as a
+                backward-compatible fallback and will use `SMART` / `EUR`.
             days_back: How many days of data to retrieve.
 
         Returns:
             A sequence of tick objects returned by `ib_insync`.
         """
-        from ib_insync import Stock
-
-        contract = Stock(symbol, "SMART", "EUR")
+        contract = self._build_stock_contract(instrument)
         self.ib.qualifyContracts(contract)
         
         target_start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days_back)
