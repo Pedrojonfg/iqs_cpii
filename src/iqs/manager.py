@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from typing import Any, Protocol
 
@@ -59,7 +60,9 @@ class Manager:
 
     async def manage_exits(self) -> None:
         """Evaluate open positions and send sell orders when signaled."""
+        logger = logging.getLogger("iqs")
         open_positions = self.broker.get_active_positions()
+        failures = 0
         for ticker in open_positions:
             try:
                 decision = self.technical.check_sell(ticker)
@@ -73,10 +76,16 @@ class Manager:
                     )
             except Exception:
                 # Keep exits resilient: a single ticker shouldn't break the whole stage.
+                failures += 1
+                logger.exception("manage_exits failed for ticker=%s; continuing", ticker)
                 continue
+        if failures:
+            logger.warning("manage_exits completed with %d ticker failure(s)", failures)
 
     async def manage_entries(self) -> None:
         """Evaluate universe tickers and send buy orders when allowed."""
+        logger = logging.getLogger("iqs")
+        failures = 0
         for ticker in self.tickers:
             try:
                 decision = self.technical.check_trade(ticker)
@@ -99,5 +108,9 @@ class Manager:
                         )
             except Exception:
                 # Keep entries resilient: one ticker failure shouldn't kill the stage.
+                failures += 1
+                logger.exception("manage_entries failed for ticker=%s; continuing", ticker)
                 continue
+        if failures:
+            logger.warning("manage_entries completed with %d ticker failure(s)", failures)
 
