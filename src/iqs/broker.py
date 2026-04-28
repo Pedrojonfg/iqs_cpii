@@ -5,6 +5,8 @@ import time
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
+import pandas as pd
+
 from iqs.instruments import Instrument
 
 if TYPE_CHECKING:
@@ -137,3 +139,44 @@ class BrokerData:
             time.sleep(0.2)
 
         return all_ticks
+
+    def fetch_ohlcv(
+        self,
+        instrument: Instrument | str,
+        *,
+        duration: str = "6 M",
+        bar_size: str = "1 day",
+        what_to_show: str = "TRADES",
+        use_rth: bool = False,
+    ) -> pd.DataFrame:
+        """Fetch historical OHLCV bars from Interactive Brokers.
+
+        This uses `ib_insync.IB.reqHistoricalData` and returns a normalized DataFrame
+        with lowercase columns: open, high, low, close, volume, date.
+        """
+        from ib_insync import util
+
+        contract = self._build_stock_contract(instrument)
+        self.ib.qualifyContracts(contract)
+
+        bars = self.ib.reqHistoricalData(
+            contract,
+            endDateTime="",
+            durationStr=duration,
+            barSizeSetting=bar_size,
+            whatToShow=what_to_show,
+            useRth=use_rth,
+            formatDate=1,
+            keepUpToDate=False,
+        )
+        df = util.df(bars)
+        if df is None or len(df) == 0:
+            return pd.DataFrame()
+
+        df = df.rename(columns={c: str(c).lower() for c in df.columns})
+        # Keep a consistent minimal schema.
+        cols = [c for c in ["date", "open", "high", "low", "close", "volume"] if c in df.columns]
+        df = df[cols].copy()
+        if "close" in df.columns:
+            df = df.dropna(subset=["close"])
+        return df

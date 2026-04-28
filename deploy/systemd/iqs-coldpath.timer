@@ -1,0 +1,12 @@
+[Unit]
+Description=Run IQS Cold Path daily at 18:00 CET/CEST
+
+[Timer]
+OnCalendar=*-*-* 18:00:00
+TimeZone=Europe/Paris
+Persistent=true
+Unit=iqs-coldpath.service
+
+[Install]
+WantedBy=timers.target
+

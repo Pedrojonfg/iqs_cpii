@@ -33,6 +33,7 @@ dev = [
 [project.scripts]
 iqs = "iqs.main:cli"
 iqs-watchdog = "iqs.watchdog:main"
+iqs-coldpath = "iqs.coldpath:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -34,8 +34,11 @@ def test_me_simple_v1_trend_up_triggers_buy(monkeypatch):
     close[-1] = close[-2] * 1.02
     df = _make_df_from_close(close)
 
-    monkeypatch.setattr(technical, "_download_ohlcv", lambda *args, **kwargs: df)
-    ta = technical.TechnicalAnalyzer()
+    class _B:
+        def fetch_ohlcv(self, *args, **kwargs):
+            return df
+
+    ta = technical.TechnicalAnalyzer(_B())
     decision = ta.check_trade("FAKE")
 
     assert decision["signal"] == "BUY"
@@ -58,8 +61,11 @@ def test_me_simple_v1_negative_shock_triggers_sell(monkeypatch):
     close[-1] = close[-2] * 0.90  # big down move
     df = _make_df_from_close(close)
 
-    monkeypatch.setattr(technical, "_download_ohlcv", lambda *args, **kwargs: df)
-    ta = technical.TechnicalAnalyzer()
+    class _B:
+        def fetch_ohlcv(self, *args, **kwargs):
+            return df
+
+    ta = technical.TechnicalAnalyzer(_B())
     decision = ta.check_sell("FAKE")
 
     assert decision["signal"] == "SELL"

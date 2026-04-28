@@ -67,9 +67,9 @@ async def main() -> None:
     try:
         _touch_heartbeat()
         execution_handler: ExecutionHandler = ExecutionHandler(connection)
-        technical_analyzer: TechnicalAnalyzer = TechnicalAnalyzer()
         fundamental_analyzer: FundamentalAnalyzer = FundamentalAnalyzer()
         broker: BrokerData = BrokerData(connection)
+        technical_analyzer: TechnicalAnalyzer = TechnicalAnalyzer(broker)
         # Universe with IB contract metadata from the provided table.
         tickers: list[Instrument] = [
             Instrument(symbol="AIR", exchange="CHIX", currency="EUR"),  # Airbus

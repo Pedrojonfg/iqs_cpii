@@ -14,8 +14,8 @@ class _BrokerLike(Protocol):
 
 
 class _TechnicalLike(Protocol):
-    def check_sell(self, ticker: str) -> dict[str, Any]: ...
-    def check_trade(self, ticker: str) -> dict[str, Any]: ...
+    def check_sell(self, ticker: Instrument | str) -> dict[str, Any]: ...
+    def check_trade(self, ticker: Instrument | str) -> dict[str, Any]: ...
 
 
 class _FundamentalLike(Protocol):
@@ -74,7 +74,7 @@ class Manager:
         for ticker in open_positions:
             try:
                 instrument = self.instrument_by_symbol.get(ticker, Instrument(symbol=ticker, exchange="SMART", currency="EUR"))
-                decision = self.technical.check_sell(ticker)
+                decision = self.technical.check_sell(instrument)
                 if decision.get("signal", "DON'T SELL") == "SELL":
                     self.execution.send_order(
                         instrument,
@@ -98,7 +98,7 @@ class Manager:
         for instrument in self.tickers:
             try:
                 ticker = instrument.symbol
-                decision = self.technical.check_trade(ticker)
+                decision = self.technical.check_trade(instrument)
                 if decision.get("signal", "DON'T BUY") == "BUY":
                     target_quantity = float(decision["quantity"])
                     entry_price = float(decision["entry_price"])

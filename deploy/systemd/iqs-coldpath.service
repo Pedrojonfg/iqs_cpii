@@ -1,0 +1,12 @@
+[Unit]
+Description=IQS Cold Path (daily calibration)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/iqs
+# Load env vars (IB_HOST, IB_PORT, IB_CLIENT_ID, IQS_COLDPATH_*, etc.)
+EnvironmentFile=/opt/iqs/.env
+ExecStart=/opt/iqs/.venv/bin/iqs-coldpath
+

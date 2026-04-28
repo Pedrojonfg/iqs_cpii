@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from iqs.instruments import Instrument
 from iqs.math_engine import (
     garch11_conditional_volatility,
     garch11_fit_mle,
@@ -46,26 +47,16 @@ def _clamp_float(value: Any, *, default: float) -> float:
     return fv
 
 
-def _download_ohlcv(symbol: str, *, period: str, interval: str) -> pd.DataFrame:
-    try:
-        import yfinance as yf  # type: ignore
-    except Exception as e:
-        raise RuntimeError(
-            "yfinance is required for the default OHLCV downloader. "
-            "Install it or patch `_download_ohlcv` in tests."
-        ) from e
-
-    df = yf.download(symbol, period=period, interval=interval, auto_adjust=False, progress=False)
-    if df is None or len(df) == 0:
-        return pd.DataFrame()
-    # yfinance may return multiindex columns depending on version; normalize.
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = [str(c[0]) for c in df.columns]
-    df = df.rename(columns={c: str(c).lower() for c in df.columns})
-    needed = {"open", "high", "low", "close"}
-    if not needed.issubset(set(df.columns)):
-        return pd.DataFrame()
-    return df.dropna(subset=["close"])
+class _BrokerLike:
+    def fetch_ohlcv(
+        self,
+        instrument: Instrument | str,
+        *,
+        duration: str = "6 M",
+        bar_size: str = "1 day",
+        what_to_show: str = "TRADES",
+        use_rth: bool = False,
+    ) -> pd.DataFrame: ...
 
 
 def _strategy_me_simple_v1(df: pd.DataFrame, params: dict[str, Any]) -> dict[str, Any]:
@@ -150,18 +141,30 @@ _STRATEGIES: dict[str, Any] = {
 class TechnicalAnalyzer:
     """Config-driven technical analysis engine."""
 
-    def __init__(self) -> None:
+    def __init__(self, broker: _BrokerLike) -> None:
+        self.broker: _BrokerLike = broker
         self.strategy_name: str = os.getenv("IQS_STRATEGY", "me_simple_v1").strip() or "me_simple_v1"
         self.strategy_params: dict[str, Any] = _get_env_json("IQS_STRATEGY_PARAMS")
 
-        # MVP data source settings (yfinance). Replace with IB candles later.
-        self.yf_period: str = os.getenv("IQS_YF_PERIOD", "6mo").strip() or "6mo"
-        self.yf_interval: str = os.getenv("IQS_YF_INTERVAL", "1d").strip() or "1d"
+        # IB historical data settings
+        self.ib_duration: str = os.getenv("IQS_IB_DURATION", "6 M").strip() or "6 M"
+        self.ib_bar_size: str = os.getenv("IQS_IB_BAR_SIZE", "1 day").strip() or "1 day"
+        self.ib_what_to_show: str = os.getenv("IQS_IB_WHAT_TO_SHOW", "TRADES").strip() or "TRADES"
+        self.ib_use_rth: bool = (os.getenv("IQS_IB_USE_RTH", "0").strip() == "1")
 
         # Sizing policy: cap per-order notional.
         self.max_order_notional: float = _clamp_float(os.getenv("IQS_MAX_ORDER_NOTIONAL", "2000"), default=2000.0)
 
-    def check_trade(self, ticker: str) -> dict[str, Any]:
+    def _get_df(self, instrument: Instrument | str) -> pd.DataFrame:
+        return self.broker.fetch_ohlcv(
+            instrument,
+            duration=self.ib_duration,
+            bar_size=self.ib_bar_size,
+            what_to_show=self.ib_what_to_show,
+            use_rth=self.ib_use_rth,
+        )
+
+    def check_trade(self, instrument: Instrument | str) -> dict[str, Any]:
         """
         Return a dict with at least:
         - signal: "BUY" | "DON'T BUY"
@@ -174,7 +177,7 @@ class TechnicalAnalyzer:
         if fn is None:
             raise RuntimeError(f"Unknown strategy: {self.strategy_name!r}. Available: {sorted(_STRATEGIES)}")
 
-        df = _download_ohlcv(ticker, period=self.yf_period, interval=self.yf_interval)
+        df = self._get_df(instrument)
         if df.empty:
             return {"signal": "DON'T BUY"}
 
@@ -194,7 +197,7 @@ class TechnicalAnalyzer:
         decision["signal"] = "BUY"
         return decision
 
-    def check_sell(self, ticker: str) -> dict[str, Any]:
+    def check_sell(self, instrument: Instrument | str) -> dict[str, Any]:
         """
         Return a dict with at least:
         - signal: "SELL" | "DON'T SELL"
@@ -205,7 +208,7 @@ class TechnicalAnalyzer:
         if fn is None:
             raise RuntimeError(f"Unknown strategy: {self.strategy_name!r}. Available: {sorted(_STRATEGIES)}")
 
-        df = _download_ohlcv(ticker, period=self.yf_period, interval=self.yf_interval)
+        df = self._get_df(instrument)
         if df.empty:
             return {"signal": "DON'T SELL"}
 
