@@ -49,13 +49,24 @@ class NewsFetcher:
         except Exception:
             self.breaker.record_failure()
             return []
+
+    @staticmethod
+    def _escape_xml_text(text: str) -> str:
+        """Escape basic XML entities in free text content."""
+        return (
+            text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&apos;")
+        )
     
     def format_and_sanitize(self, clean_headlines: list[str]) -> str:
         """Sanitize and wrap headlines into a simple XML payload.
 
         The output is designed to be passed to an LLM while reducing prompt
-        injection surface (angle brackets are stripped and each entry is wrapped
-        in `<new>` tags).
+        injection surface (XML-sensitive characters are escaped and each entry is
+        wrapped in `<new>` tags).
 
         Args:
             clean_headlines: List of raw headline strings.
@@ -66,7 +77,7 @@ class NewsFetcher:
         healthy_headlines: list[str] = []
         for headline in clean_headlines:
             headline = headline[:self.max_chars_headline]
-            headline= headline.replace("<", " ").replace(">", " ")
+            headline = self._escape_xml_text(headline)
             headline = "<new>"+ headline +"</new>"
             healthy_headlines.append(headline)
         headline_string= "<news>"+ ("\n".join(healthy_headlines))+ "</news>"
