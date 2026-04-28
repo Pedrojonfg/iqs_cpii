@@ -119,7 +119,8 @@ def market_intensity_lambda(event_timestamps: Array1D) -> float:
     T = event_timestamps[n - 1] - event_timestamps[0]
     if T <= 0.0:
         return 0.0
-    return n / T
+    # With n timestamps there are (n-1) inter-arrival intervals.
+    return (n - 1) / T
 
 
 @njit(cache=True)
@@ -420,7 +421,7 @@ def skewness(x: Array1D) -> float:
     m2 /= n
     m3 /= n
     if m2 <= 0.0:
-        return 0.0
+        return float("nan")
     return m3 / (m2 ** 1.5)
 
 
@@ -448,7 +449,7 @@ def kurtosis_excess(x: Array1D) -> float:
     m2 /= n
     m4 /= n
     if m2 <= 0.0:
-        return -3.0
+        return float("nan")
     return m4 / (m2 * m2) - 3.0
 
 
@@ -818,6 +819,8 @@ def garch11_fit_mle(returns: Array1D, *, x0: Garch11Params | None = None) -> Gar
     cons = [{"type": "ineq", "fun": lambda th: 0.999999 - (th[1] + th[2])}]
 
     res = minimize(obj, x0=np.array([x0.omega, x0.alpha, x0.beta], dtype=np.float64), bounds=bounds, constraints=cons)
+    if not bool(res.success):
+        return x0
     w, a, b = (float(res.x[0]), float(res.x[1]), float(res.x[2]))
     return Garch11Params(omega=w, alpha=a, beta=b)
 
@@ -919,6 +922,8 @@ def calmar_ratio(returns: Array1D, equity_curve: Array1D, annualization: float =
     for i in range(n):
         mu += returns[i]
     mu /= n
+    if 1.0 + mu <= 0.0:
+        return float("nan")
     cagr = (1.0 + mu) ** annualization - 1.0
     mdd = maximum_drawdown(equity_curve)
     if mdd <= 0.0:
@@ -1177,6 +1182,8 @@ def correlation_matrix(X: np.ndarray) -> np.ndarray:
     Correlation matrix for a data matrix X with shape (n_obs, n_vars).
     """
     n_obs, n_vars = X.shape
+    if n_obs == 0:
+        return np.zeros((n_vars, n_vars), dtype=np.float64)
     C = np.empty((n_vars, n_vars), dtype=np.float64)
     # Means
     mu = np.zeros(n_vars, dtype=np.float64)
@@ -1216,6 +1223,10 @@ def pca_eigenvalues(X: np.ndarray) -> np.ndarray:
     Academic PCA: eigenvalues of Σ = cov(X), with X shaped (n_obs, n_vars).
     """
     X = np.asarray(X, dtype=np.float64)
+    if X.ndim != 2:
+        raise ValueError("X must be a 2D array with shape (n_obs, n_vars)")
+    if X.shape[0] < 2:
+        return np.full(X.shape[1], float("nan"), dtype=np.float64)
     # Center
     Xc = X - X.mean(axis=0, keepdims=True)
     cov = (Xc.T @ Xc) / (Xc.shape[0] - 1)
