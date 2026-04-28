@@ -21,6 +21,10 @@ class _FundamentalLike(Protocol):
     def check_trade(self, ticker: str) -> str: ...
 
 
+class _FundamentalSafeLike(_FundamentalLike, Protocol):
+    async def check_trade_safe(self, ticker: str) -> str: ...
+
+
 class _ExecutionLike(Protocol):
     def send_order(
         self,
@@ -96,11 +100,11 @@ class Manager:
                 decision = self.technical.check_trade(ticker)
                 if decision.get("signal", "DON'T BUY") == "BUY":
                     # Prefer resilient path when available (async + timeout/breaker).
-                    llmcheck = (
-                        await self.fundamental.check_trade_safe(ticker)  # type: ignore[attr-defined]
-                        if hasattr(self.fundamental, "check_trade_safe")
-                        else self.fundamental.check_trade(ticker)
-                    )
+                    safe_check = getattr(self.fundamental, "check_trade_safe", None)
+                    if callable(safe_check):
+                        llmcheck = await safe_check(ticker)
+                    else:
+                        llmcheck = self.fundamental.check_trade(ticker)
                     if llmcheck == "CLEAR":
                         self.execution.send_order(
                             instrument,
