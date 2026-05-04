@@ -66,7 +66,12 @@ class BrokerData:
     def subscribe_to_data(self, instrument: Instrument | str, callback_function: Callable[..., Any]) -> None:
         """Subscribe to live tick-by-tick data for an instrument."""
         contract = self._build_stock_contract(instrument)
-        self.ib.qualifyContracts(contract)
+        try:
+            self.ib.qualifyContracts(contract)
+        except RuntimeError as exc:
+            # In async startup paths, ib_insync sync helpers may raise this; proceed with raw contract.
+            if "event loop is already running" not in str(exc):
+                raise
         ticker_stream = self.ib.reqTickByTickData(contract, "AllLast")
         ticker_stream.updateEvent += callback_function
 

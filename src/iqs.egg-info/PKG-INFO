@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: iqs
+Version: 0.1.0
+Summary: Institutional Quantitative System - MVP para Computer Programming 2
+Author-email: Tu Nombre <tu.email@student.ie.edu>
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: numba
+Requires-Dist: ib_insync
+Requires-Dist: pandas-ta
+Requires-Dist: python-dotenv
+Requires-Dist: groq
+Requires-Dist: yfinance
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"

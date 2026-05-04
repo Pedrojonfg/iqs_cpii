@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 
 from dotenv import load_dotenv
 from ib_insync import IB
@@ -47,8 +50,24 @@ def _setup_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 
 
+def _write_ui_state(*, connection_status: str, last_error: str | None = None) -> None:
+    state_path = Path("ui/ui_state.json")
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "connection_status": connection_status,
+        "symbol": "-",
+        "last_price": None,
+        "signal": "DON'T BUY",
+        "position_state": "CLOSED",
+        "last_event_time": datetime.now(timezone.utc).isoformat(),
+        "last_error": last_error,
+    }
+    state_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 async def main() -> None:
     _setup_logging()
+    logger = logging.getLogger("iqs")
     load_dotenv()
 
     ib_host = _get_required_env("IB_HOST")
@@ -56,7 +75,28 @@ async def main() -> None:
     ib_client_id = _get_required_int_env("IB_CLIENT_ID")
 
     connection: IB = IB()
-    await connection.connectAsync(ib_host, ib_port, clientId=ib_client_id)
+    connected = False
+    try:
+        await connection.connectAsync(ib_host, ib_port, clientId=ib_client_id)
+        connected = connection.isConnected()
+        if connected:
+            logger.info("Connected to IB")
+            _write_ui_state(connection_status="CONNECTED", last_error=None)
+        else:
+            logger.warning("connectAsync returned without an active IB session")
+    except Exception as e:
+        logger.warning("No IB connection, running in degraded mode: %s", e)
+
+    if not connected:
+        logger.error("Interactive Brokers unavailable; running in degraded UI-only mode")
+        degraded_sleep_secs = max(1, int(os.getenv("IQS_DEGRADED_SLEEP_SECS", "5")))
+        while True:
+            _touch_heartbeat()
+            _write_ui_state(
+                connection_status="DEGRADED_NO_IB",
+                last_error="Interactive Brokers unavailable. Running without broker/feed.",
+            )
+            await asyncio.sleep(degraded_sleep_secs)
 
     try:
         _touch_heartbeat()

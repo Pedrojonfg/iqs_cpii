@@ -3,9 +3,24 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 from typing import Any, Protocol
+from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
+from pathlib import Path
+import json
 
 from iqs.data.instruments import Instrument
 from iqs.strategy.events import VolumeBar
+
+@dataclass
+class SystemState:
+    connection_status: str = "DISCONNECTED"
+    symbol: str = "-"
+    last_price: float | None = None
+    signal: str = "DON'T BUY"
+    position_state: str = "CLOSED"
+    last_event_time: str | None = None
+    last_error: str | None = None
+
 
 
 class _BrokerLike(Protocol):
@@ -52,6 +67,20 @@ class Manager:
         self.technical: _TechnicalLike = technical_analyzer
         self.execution: _ExecutionLike = execution_handler
 
+        self._ui_state = SystemState()
+        self._ui_state_path = Path("ui/ui_state.json")
+        self._ui_state_path.parent.mkdir(parents=True, exist_ok=True)
+
+
+    def to_ui_state(self) -> dict:
+        return asdict(self._ui_state)
+
+    def _save_ui_state(self) -> None:
+        self._ui_state.last_event_time = datetime.now(timezone.utc).isoformat()
+        self._ui_state_path.write_text(
+            json.dumps(self.to_ui_state(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     async def on_volume_bar(self, bar: VolumeBar) -> None:
         logger = logging.getLogger("iqs")
 
@@ -63,6 +92,14 @@ class Manager:
         decision = on_bar(bar)
         signal = decision.get("signal", "DON'T BUY")
         instrument = self.instrument_by_symbol.get(bar.symbol, Instrument(symbol=bar.symbol, exchange="SMART", currency="EUR"))
+        self._ui_state.connection_status = "CONNECTED"
+        self._ui_state.symbol = bar.symbol
+        self._ui_state.last_price = float(getattr(bar, "close", 0.0))
+        self._ui_state.signal = signal
+        self._ui_state.position_state = "OPEN" if signal == "BUY" else "CLOSED"
+        self._ui_state.last_error = None
+
+        self._save_ui_state()
 
         if signal == "SELL":
             try:

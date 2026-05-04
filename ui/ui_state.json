@@ -1,0 +1,9 @@
+{
+  "connection_status": "DEGRADED_NO_IB",
+  "symbol": "-",
+  "last_price": null,
+  "signal": "DON'T BUY",
+  "position_state": "CLOSED",
+  "last_event_time": "2026-05-04T17:32:50.460387+00:00",
+  "last_error": "Interactive Brokers unavailable. Running without broker/feed."
+}

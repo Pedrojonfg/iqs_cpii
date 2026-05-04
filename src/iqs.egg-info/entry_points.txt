@@ -1,0 +1,4 @@
+[console_scripts]
+iqs = iqs.app.main:cli
+iqs-coldpath = iqs.cli.coldpath:main
+iqs-watchdog = iqs.ops.watchdog:main
