@@ -1,0 +1,28 @@
+[2026-05-05T11:52:38.058609+02:00] [ColdPathRunner.run] Fetching past data to calibrate volume candles (mode=synthetic, symbol=AAA, lookback_days=5)
+[2026-05-05T11:52:38.058969+02:00] [ColdPathRunner.run] Generating SYNTHETIC tick data (price, size, timestamp)
+[2026-05-05T11:52:38.114733+02:00] [ColdPathRunner.run] Generated n_ticks=20000. Passing to DataCalibrator.
+[2026-05-05T11:52:39.835855+02:00] [DataCalibrator.calibrate_with_jarque_bera] Running Jarque–Bera normality test across candidate bucket sizes: [100, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000]
+[2026-05-05T11:52:39.876244+02:00] [DataCalibrator.calibrate_with_jarque_bera] bucket=   100: JB_stat=1036.275
+[2026-05-05T11:52:39.889466+02:00] [DataCalibrator.calibrate_with_jarque_bera] bucket=   500: JB_stat=98.170
+[2026-05-05T11:52:39.898167+02:00] [DataCalibrator.calibrate_with_jarque_bera] bucket=  1000: JB_stat=32.936
+[2026-05-05T11:52:39.907498+02:00] [DataCalibrator.calibrate_with_jarque_bera] bucket=  2000: JB_stat=3.654
+[2026-05-05T11:52:39.915144+02:00] [DataCalibrator.calibrate_with_jarque_bera] bucket=  5000: JB_stat=18.647
+[2026-05-05T11:52:39.925005+02:00] [DataCalibrator.calibrate_with_jarque_bera] bucket= 10000: JB_stat=3.883
+[2026-05-05T11:52:39.931880+02:00] [DataCalibrator.calibrate_with_jarque_bera] bucket= 20000: JB_stat=0.479
+[2026-05-05T11:52:39.940652+02:00] [DataCalibrator.calibrate_with_jarque_bera] bucket= 50000: JB_stat=0.092
+[2026-05-05T11:52:39.947520+02:00] [DataCalibrator.calibrate_with_jarque_bera] bucket=100000: JB_stat=0.286
+[2026-05-05T11:52:39.947726+02:00] [DataCalibrator.calibrate_with_jarque_bera] Selected best bucket_volume=50000 (min JB_stat=0.092)
+[2026-05-05T11:52:39.974067+02:00] [ColdPathRunner.run] Volume candles calibrated → bucket_volume=50000. Starting Hot Path next.
+[2026-05-05T11:52:39.974304+02:00] [ColdPathRunner.run] Calibration saved to data/calibration/calibration_latest.json
+[2026-05-05T11:52:39.976060+02:00] [MarketDataFeed.__init__] Building MarketDataFeed for 1 instrument(s): ['AAA']
+[2026-05-05T11:52:39.976281+02:00] [MarketDataFeed.start] Subscribing to tick stream(s) via Broker.subscribe_to_data(...)
+[2026-05-05T11:52:41.129691+02:00] [HotPathParams] Configured HotPathParams=HotPathParams(window_bars=128, min_bars=20, vol_window=20, band_k=1.0, trailing_k=2.0)
+[2026-05-05T11:52:41.130096+02:00] [iqs.app.manager.Manager] Hot Path: entering event-driven loop: ticks → MarketDataFeed → VolumeBar → TechnicalAnalyzer → FundamentalAnalyzer → ExecutionHandler
+[2026-05-05T11:52:41.130221+02:00] [HotPathConfig] Using bucket_volume=50000 for symbol=AAA
+[2026-05-05T11:52:41.972004+02:00] [MarketDataFeed] Emitted VolumeBar(symbol='AAA', O=99.9697, H=100.3710, L=99.9348, C=100.3517, V=50770)
+[2026-05-05T11:52:41.972562+02:00] [EventDrivenTechnicalAnalyzer.on_volume_bar] Analyzing VolumeBar(symbol='AAA', close=100.3517, volume=50770)
+[2026-05-05T11:52:41.972924+02:00] [EventDrivenTechnicalAnalyzer.on_volume_bar] Technical decision={'signal': "DON'T BUY"}
+[2026-05-05T11:52:42.858099+02:00] [MarketDataFeed] Emitted VolumeBar(symbol='AAA', O=100.3517, H=100.8366, L=100.3517, C=100.8170, V=50320)
+[2026-05-05T11:52:42.858541+02:00] [EventDrivenTechnicalAnalyzer.on_volume_bar] Analyzing VolumeBar(symbol='AAA', close=100.8170, volume=50320)
+[2026-05-05T11:52:42.858730+02:00] [EventDrivenTechnicalAnalyzer.on_volume_bar] Technical decision={'signal': "DON'T BUY"}
+[2026-05-05T11:52:43.137510+02:00] [HotPathRunner] Demo finished (no real orders were sent)

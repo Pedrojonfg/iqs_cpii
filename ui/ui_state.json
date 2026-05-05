@@ -1,9 +1,9 @@
 {
-  "connection_status": "DEGRADED_NO_IB",
-  "symbol": "-",
-  "last_price": null,
-  "signal": "DON'T BUY",
-  "position_state": "CLOSED",
-  "last_event_time": "2026-05-04T17:32:50.460387+00:00",
-  "last_error": "Interactive Brokers unavailable. Running without broker/feed."
+  "connection_status": "SYNTHETIC",
+  "last_error": null,
+  "last_event_time": "2026-05-05T11:52:42.859252+02:00",
+  "last_price": 100.81699493632551,
+  "position_state": "SIM",
+  "signal": "RUNNING",
+  "symbol": "AAA"
 }

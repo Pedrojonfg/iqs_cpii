@@ -13,6 +13,7 @@ dependencies:
   - sphinx
   - pip
   - pip:
+      - streamlit
       - ib_insync
       - groq
       - yfinance

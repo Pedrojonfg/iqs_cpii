@@ -18,3 +18,5 @@ Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
+Provides-Extra: demo
+Requires-Dist: streamlit; extra == "demo"

@@ -29,6 +29,9 @@ dev = [
     "mypy",
     "sphinx",
 ] 
+demo = [
+    "streamlit",
+]
 
 [project.scripts]
 iqs = "iqs.app.main:cli"
