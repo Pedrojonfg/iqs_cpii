@@ -17,7 +17,7 @@ from iqs.data.market_data_feed import FeedConfig, MarketDataFeed
 from iqs.execution.execution import ExecutionHandler
 from iqs.services.fundamental import FundamentalAnalyzer
 from iqs.app.manager import Manager
-from iqs.strategy.technical import EventDrivenTechnicalAnalyzer, TechnicalAnalyzer
+from iqs.strategy.technical import EventDrivenTechnicalAnalyzer
 
 
 def _touch_heartbeat() -> None:
@@ -104,11 +104,7 @@ async def main() -> None:
         fundamental_analyzer = FundamentalAnalyzer()
         broker = BrokerData(connection)
 
-        event_driven = os.getenv("IQS_EVENT_DRIVEN", "0").strip() == "1"
-        if event_driven:
-            technical_analyzer = EventDrivenTechnicalAnalyzer()
-        else:
-            technical_analyzer = TechnicalAnalyzer(broker)
+        technical_analyzer = EventDrivenTechnicalAnalyzer()
 
         tickers: list[Instrument] = [
             Instrument(symbol="AIR", exchange="CHIX", currency="EUR"),
@@ -138,20 +134,6 @@ async def main() -> None:
             execution_handler=execution_handler,
         )
 
-        if not event_driven:
-            while True:
-                try:
-                    await manager.manage_exits()
-                except Exception:
-                    logging.getLogger("iqs").exception("manage_exits failed; continuing")
-                try:
-                    await manager.manage_entries()
-                except Exception:
-                    logging.getLogger("iqs").exception("manage_entries failed; continuing")
-                _touch_heartbeat()
-                secs_until_next_min = 60 - (int(time.time()) % 60)
-                await asyncio.sleep(secs_until_next_min)
-
         queue: asyncio.Queue = asyncio.Queue(maxsize=int(os.getenv("IQS_BAR_QUEUE_MAX", "1000")))
         feed_cfg = FeedConfig(
             default_bucket_volume=float(os.getenv("IQS_DEFAULT_BUCKET_VOLUME", "10000")),
@@ -177,4 +159,8 @@ async def main() -> None:
 
 def cli() -> None:
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli()
 

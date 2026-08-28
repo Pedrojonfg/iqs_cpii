@@ -30,8 +30,7 @@ class _BrokerLike(Protocol):
 
 
 class _TechnicalLike(Protocol):
-    def check_sell(self, ticker: Instrument | str) -> dict[str, Any]: ...
-    def check_trade(self, ticker: Instrument | str) -> dict[str, Any]: ...
+    def on_volume_bar(self, bar: VolumeBar) -> dict[str, Any]: ...
 
 
 class _FundamentalLike(Protocol):

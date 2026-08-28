@@ -1,5 +1,33 @@
 # IQS Trading System
 
+> **Nota:** este es un proyecto académico, no un sistema en producción. Nunca ha
+> operado con capital real. El objetivo es la infraestructura event-driven en sí
+> misma (ingesta de ticks, construcción de volume bars, separación hot/cold path,
+> capa de ejecución con validaciones de riesgo) — no una estrategia validada. La
+> estrategia técnica incluida (`me_simple_v1`) es un ejemplo para ejercitar el
+> pipeline de punta a punta, deliberadamente reemplazable: el diseño está pensado
+> para que cualquier estrategia (la tuya) se conecte sobre esta base.
+
+## Known Limitations
+
+- **SELL position sizing** (`EventDrivenTechnicalAnalyzer.on_volume_bar`) is
+  fixed at `quantity=1.0` and does not query the actual open position size
+  from the broker. A real deployment would need the broker abstraction to
+  expose per-symbol position size (it currently only exposes the list of
+  symbols with open positions), and `Manager` would need to use it before
+  closing.
+- **No portfolio-level risk management**: no max drawdown, no exposure limits
+  across the universe, no correlation checks across the hand-picked European
+  A&D basket in `main.py`.
+- **No reconnection/reconciliation logic**: if the IB connection drops
+  mid-session, the process stops feeding bars until manually restarted; no
+  re-subscription or order-state reconciliation on reconnect.
+- **Broker coupling**: `BrokerData`/`ExecutionHandler` are written directly
+  against `ib_insync`; there's no broker-agnostic interface, so swapping
+  broker would mean rewriting both.
+
+---
+
 A Python-based trading system that connects to Interactive Brokers, transforms live ticks into **volume bars**, generates trading signals, and sends orders through a modular pipeline.
 
 This project is designed as a practical, event-driven architecture for algorithmic trading.  
@@ -33,22 +61,18 @@ IQS focuses on an event-driven flow:
 5. `Manager` applies orchestration logic (including fundamental/LLM veto for entries), updates UI state, and calls execution.
 6. `ExecutionHandler` validates and places IB orders (limit or bracket).
 
-### Event-driven vs polling modes
+### Event-driven architecture
 
-IQS has two runtime modes controlled by `IQS_EVENT_DRIVEN`:
-
-- `IQS_EVENT_DRIVEN=1` (**event-driven mode**, recommended):  
-  uses tick subscriptions + volume-bar pipeline + `manager.on_volume_bar(...)`.
-
-- `IQS_EVENT_DRIVEN=0` (**polling/legacy loop**):  
-  main loop runs periodically and calls manager entry/exit management methods on a time cadence.
+IQS runs in **event-driven mode only**: tick subscriptions feed a volume-bar
+pipeline and each completed bar is dispatched to `manager.on_volume_bar(...)`.
+There is no polling/legacy loop.
 
 ---
 
 ## Main Components
 
 - `src/iqs/app/main.py`  
-  Application entrypoint (`iqs` CLI). Loads `.env`, connects to IB, chooses mode (event-driven or polling), initializes all core services, and runs the main loop.
+  Application entrypoint (`iqs` CLI). Loads `.env`, connects to IB, initializes all core services, and runs the event-driven main loop.
 
 - `src/iqs/app/manager.py`  
   Orchestrator layer. Receives strategy decisions, performs fundamental veto checks, triggers execution, and writes UI state to `ui/ui_state.json`.
@@ -58,7 +82,6 @@ IQS has two runtime modes controlled by `IQS_EVENT_DRIVEN`:
 
 - `src/iqs/strategy/technical.py`  
   Strategy layer:
-  - `TechnicalAnalyzer` for historical/OHLCV checks
   - `EventDrivenTechnicalAnalyzer` for hot-path volume-bar decisions
 
 - `src/iqs/execution/execution.py`  
@@ -90,9 +113,7 @@ Core variables:
 IB_HOST - IB Gateway/TWS host (example: 127.0.0.1)
 IB_PORT - IB Gateway/TWS port (example: 7497)
 IB_CLIENT_ID - IB client ID for the session
-IQS_EVENT_DRIVEN - mode switch:
-1 = event-driven (volume bars)
-0 = polling/legacy loop
+
 Useful event-driven settings:
 
 IQS_CALIBRATION_PATH - JSON file with per-symbol volume buckets

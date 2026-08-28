@@ -10,3 +10,11 @@ iqs_env/
 .DS_Store
 
 .env
+
+build/
+*.egg-info/
+
+.iqs_heartbeat
+veto_audit.log
+ui/ui_state.json
+ui/ui_logs.txt

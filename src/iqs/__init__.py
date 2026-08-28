@@ -15,7 +15,6 @@ __all__ = [
     "HotPathParams",
     "Manager",
     "NewsFetcher",
-    "TechnicalAnalyzer",
     "EventDrivenTechnicalAnalyzer",
     "VolumeBar",
     "HotPathResult",
@@ -76,10 +75,6 @@ def __getattr__(name: str):
         from iqs.services.news import NewsFetcher as v
 
         return v
-    if name == "TechnicalAnalyzer":
-        from iqs.strategy.technical import TechnicalAnalyzer as v
-
-        return v
     if name == "EventDrivenTechnicalAnalyzer":
         from iqs.strategy.technical import EventDrivenTechnicalAnalyzer as v
 
@@ -106,4 +101,3 @@ if TYPE_CHECKING:
     from iqs.services.news import NewsFetcher
     from iqs.services.nlp_veto import LLMCheck
     from iqs.strategy.events import HotPathResult, VolumeBar
-    from iqs.strategy.technical import TechnicalAnalyzer

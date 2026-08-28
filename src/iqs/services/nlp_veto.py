@@ -54,6 +54,9 @@ class LLMCheck:
         if ticker in self.cache:
             _, last_time = self.cache[ticker]
             if current_time - last_time < self.cooldown_secs:
+                # Deliberate, not a bug: don't reuse a possibly-stale LLM read during
+                # cooldown, and don't re-hit the Groq API. Fail conservative (VETO)
+                # instead of trusting an old news read.
                 return "VETO"
             del self.cache[ticker]
 
