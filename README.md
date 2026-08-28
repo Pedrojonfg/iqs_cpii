@@ -1,12 +1,12 @@
 # IQS Trading System
 
-> **Nota:** este es un proyecto académico, no un sistema en producción. Nunca ha
-> operado con capital real. El objetivo es la infraestructura event-driven en sí
-> misma (ingesta de ticks, construcción de volume bars, separación hot/cold path,
-> capa de ejecución con validaciones de riesgo) — no una estrategia validada. La
-> estrategia técnica incluida (`me_simple_v1`) es un ejemplo para ejercitar el
-> pipeline de punta a punta, deliberadamente reemplazable: el diseño está pensado
-> para que cualquier estrategia (la tuya) se conecte sobre esta base.
+> **Note:** this is an academic project, not a production system. It has never
+> operated with real capital. The goal is the event-driven infrastructure itself
+> (tick ingestion, volume bar construction, hot/cold path separation, an
+> execution layer with risk validations) — not a validated strategy. The
+> included technical strategy (`me_simple_v1`) is an example to exercise the
+> end-to-end pipeline, deliberately replaceable: the design is meant so that
+> any strategy (yours) can be plugged in on top of this base.
 
 ## Known Limitations
 
