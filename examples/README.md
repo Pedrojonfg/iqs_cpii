@@ -4,7 +4,10 @@ Estos ficheros son la salida de una demo con datos **sintéticos** (símbolo `AA
 generado por `ColdPathRunner` en modo `synthetic`), no de una sesión con datos de
 mercado reales ni con conexión a IB en real.
 
-- `veto_audit.log` — log del veto layer (LLM + fundamental) sobre la demo.
+- `veto_audit.log` — log del veto layer (LLM + fundamental) sobre la demo. **Se grabó antes
+  de corregir un fail-open**: con una lista de titulares vacía se llamaba igualmente al modelo y
+  devolvía `CLEAR` ("No news available"). Ahora, sin titulares, se devuelve `VETO` sin llamar
+  al modelo (`tests/test_nlp_veto.py`). Se conserva como registro del comportamiento anterior.
 - `ui_logs.txt` — log completo del pipeline: calibración de volume bars vía test de
   Jarque–Bera, arranque del hot path, decisiones de la estrategia.
 - `ui_state.json` — snapshot final del estado que consume el dashboard de Streamlit.

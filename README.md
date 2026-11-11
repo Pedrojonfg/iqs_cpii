@@ -4,8 +4,8 @@
 > operated with real capital. The goal is the event-driven infrastructure itself
 > (tick ingestion, volume bar construction, hot/cold path separation, an
 > execution layer with risk validations) — not a validated strategy. The
-> included technical strategy (`me_simple_v1`) is an example to exercise the
-> end-to-end pipeline, deliberately replaceable: the design is meant so that
+> included technical strategy (VWAP bands with a trailing stop, `strategy/hotpath.py`) is an
+> example to exercise the end-to-end pipeline, deliberately replaceable: the design is meant so that
 > any strategy (yours) can be plugged in on top of this base.
 
 ## Known Limitations
@@ -32,6 +32,41 @@ A Python-based trading system that connects to Interactive Brokers, transforms l
 
 This project is designed as a practical, event-driven architecture for algorithmic trading.  
 In plain English: it listens to market data, groups raw ticks into meaningful chunks, decides whether to buy/sell, and executes trades while exposing live system state in a Streamlit dashboard.
+
+---
+
+## LLM veto layer
+
+Before a `BUY` reaches execution, `Manager` asks `FundamentalAnalyzer` for a verdict
+(`CLEAR` / `VETO`). The LLM is a **guardrail, not a signal source**: it can only block
+an entry the technical strategy already proposed, never create one.
+
+**Design rules**
+
+- **Fail-closed.** Anything that is not an explicit, valid `CLEAR` is a `VETO`: missing
+  API key, no headlines, malformed JSON, a `decision` outside `{CLEAR, VETO}`, timeout,
+  open circuit breaker. (Absence of news is *not* a green light: with an empty headline
+  list the model is never called.)
+- **Untrusted input.** Headlines are truncated (100 chars), XML-escaped, wrapped in
+  `<news><new>...</new></news>` and the system prompt declares that block as data only.
+  A headline cannot close the block (covered by tests).
+- **Cheap and auditable.** Verdicts are cached per ticker for 30 min *keyed on the exact
+  headlines* (new headlines trigger a fresh call). Every verdict is appended to
+  `veto_audit.log` (path: `IQS_VETO_AUDIT_LOG`) with model and a hash of the headlines.
+- **Isolated failures.** Timeouts and a circuit breaker around both the news fetch and the
+  LLM call.
+
+**What this does *not* show**
+
+- The prompt-injection defence is a mitigation (escaping + prompt instructions), not a
+  proof. The tests check that a malicious headline cannot break the XML structure and
+  that invalid model output is vetoed; they do not measure how often a real model obeys
+  an injected instruction.
+- There is **no evaluation** of whether the veto improves outcomes (precision/recall on
+  labelled headlines, or a backtest). Headlines come from yfinance (titles only) and the
+  prompt is tuned for European aerospace & defence.
+- `ui/demo_runner.py` calls the real veto but has `override_veto_for_demo=True` so the
+  BUY→SELL walkthrough completes; a demo run is not evidence of what the veto blocks.
 
 ---
 
@@ -84,6 +119,9 @@ There is no polling/legacy loop.
   Strategy layer:
   - `EventDrivenTechnicalAnalyzer` for hot-path volume-bar decisions
 
+- `src/iqs/services/` (`news.py`, `nlp_veto.py`, `fundamental.py`)  
+  Fundamental veto layer: yfinance headlines -> sanitisation -> LLM (Groq). See "LLM veto layer" below.
+
 - `src/iqs/execution/execution.py`  
   Execution adapter around `ib_insync`. Validates order inputs and submits limit or bracket orders to IB.
 
@@ -119,12 +157,12 @@ Useful event-driven settings:
 IQS_CALIBRATION_PATH - JSON file with per-symbol volume buckets
 IQS_DEFAULT_BUCKET_VOLUME - fallback bucket if symbol calibration is missing
 IQS_BAR_QUEUE_MAX - max queued bars before backpressure
-##How to Run
+## How to Run
 Trading engine
 iqs
 Streamlit dashboard
 streamlit run ui/app.py
-##Running Without Interactive Brokers (Degraded Mode)
+## Running Without Interactive Brokers (Degraded Mode)
 If IB is not reachable, main.py switches to degraded behavior:
 
 connection status is written as DEGRADED_NO_IB in ui/ui_state.json
@@ -132,7 +170,7 @@ no live broker feed or order execution is performed
 process stays alive and updates heartbeat/UI state periodically
 This is useful for UI demos and operational monitoring when broker connectivity is down.
 
-##UI Dashboard
+## UI Dashboard
 The Streamlit app (ui/app.py) reads:
 
 ui/ui_state.json for current system state:
@@ -145,7 +183,7 @@ last event/error
 ui/ui_logs.txt for recent logs (color-coded by component tags)
 It gives a lightweight real-time view of engine health and latest decision context.
 
-##Notes
+## Notes
 Python requirement is >=3.12 (see pyproject.toml).
 Main CLI entrypoint is registered as iqs = iqs.app.main:cli.
 For local development, tests are available under tests/.
